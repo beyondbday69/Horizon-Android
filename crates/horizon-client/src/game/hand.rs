@@ -194,6 +194,8 @@ impl Game<'_> {
         let duration = swing_duration(animation, dig_speed, fatigue);
         if self.swing.start_if_able(hand, animation, duration) {
             self.swings_started += 1;
+            // Camera Overhaul: the hand's own swing nudges the view.
+            super::android_bundled::native_camera_overhaul_hand_swing();
         }
     }
     /// `swing(hand)` for the hand that acts, with the default animation.

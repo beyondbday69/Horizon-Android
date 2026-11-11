@@ -33,9 +33,12 @@ of this key outside the repository. The password/alias above match the existing
 build configuration (`android` / `androiddebugkey`). Clear the clipboard
 afterwards. Never attach the key to an issue, artifact, release or message.
 
-The workflow fails early only when neither key secret exists. Keeping the same
-key permits in-place updates between CI dev builds; replacing it requires
-reinstalling the dev app. Existing locally signed debug APKs may use a different key as well.
+The workflow no longer fails when neither key secret exists: it still builds, but
+with a throwaway key, and says so loudly (a `::warning::`, a **NO-STABLE-KEY**
+run-summary banner, and a `-NO-STABLE-KEY` APK name), because such an APK cannot
+update an installed build. See `docs/android-signing.md` for the one-time key
+generation. Keeping the same key permits in-place updates between CI dev builds;
+replacing it requires reinstalling the dev app. Existing locally signed debug APKs may use a different key as well.
 Back up their test data before uninstalling. Normal release installations are
 unaffected. Do not reset this workflow's run counter: its increasing value is
 used as Android's dev-channel version code.

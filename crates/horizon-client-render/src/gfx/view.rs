@@ -23,11 +23,18 @@ pub struct View {
 }
 
 impl View {
-    /// The flat-screen view: vanilla's camera rotation and a symmetric
-    /// vertical field of view.
-    pub fn screen(yaw: f32, pitch: f32, fov_degrees: f32, aspect: f32, far: f32) -> Self {
+    /// The flat-screen view: vanilla's camera rotation (yaw, pitch, then the
+    /// Camera Overhaul roll about the view axis) and a symmetric vertical field
+    /// of view.
+    pub fn screen(yaw: f32, pitch: f32, roll: f32, fov_degrees: f32, aspect: f32, far: f32) -> Self {
+        let mut view = crate::camera::view_matrix(yaw, pitch);
+        if roll != 0.0 {
+            // GameRendererMixin: the roll turns the camera matrix, so the screen
+            // banks about the view axis rather than the world one.
+            view *= Mat4::from_rotation_z(roll.to_radians());
+        }
         Self {
-            view: crate::camera::view_matrix(yaw, pitch),
+            view,
             projection: super::world_projection(fov_degrees, aspect, far),
             aspect,
             tan_half_fov: (fov_degrees.to_radians() / 2.0).tan(),
@@ -103,7 +110,7 @@ mod tests {
             (30.0, 359.9, -90.0, 4.0 / 3.0, 96.0),
             (82.333, 12.5, 7.75, 1.0, 1024.0),
         ] {
-            let view = View::screen(yaw, pitch, fov, aspect, far);
+            let view = View::screen(yaw, pitch, 0.0, fov, aspect, far);
             for pose in poses() {
                 let old = legacy_view_proj(fov, yaw, pitch, pose, aspect, far);
                 let new = view.view_proj(pose);
@@ -124,7 +131,7 @@ mod tests {
 
     #[test]
     fn a_single_view_set_draws_and_culls_with_its_view() {
-        let view = View::screen(45.0, 10.0, 70.0, 16.0 / 9.0, 512.0);
+        let view = View::screen(45.0, 10.0, 0.0, 70.0, 16.0 / 9.0, 512.0);
         let set = ViewSet::single(view);
         assert_eq!(set.views(), &[view]);
         assert_eq!(*set.primary(), view);

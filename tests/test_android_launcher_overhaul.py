@@ -1124,7 +1124,7 @@ class LauncherOverhaulTests(unittest.TestCase):
         self.assertIn("pub fn builtin_shader_pack(id: &str) -> Option<Pack>", shader_pkg)
 
         jt_rs = (ROOT / "crates/horizon-client/src/jar_transpiler.rs").read_text(encoding="utf-8")
-        self.assertIn("pub const HORIZON_CATALOG_MODS: [(&str, &str, &str, u64); 24]", jt_rs)
+        self.assertIn("pub const HORIZON_CATALOG_MODS: [(&str, &str, &str, u64); 26]", jt_rs)
         self.assertIn("pub fn install_builtin_horizon_mod(", jt_rs)
 
         bcs_rs = (ROOT / "crates/horizon-world/src/block_collision_scan.rs").read_text(encoding="utf-8")
@@ -1280,7 +1280,7 @@ class LauncherOverhaulTests(unittest.TestCase):
         self.assertIn("pub enum WorldHold", mod_api_rs)
         self.assertIn("pub struct WorldWarp", mod_api_rs)
         self.assertIn("pub(crate) const NATIVE_HOOKS_API: u32 = 415;", nh_rs)
-        self.assertIn("pub const HORIZON_CATALOG_MODS: [(&str, &str, &str, u64); 24]", jt_rs)
+        self.assertIn("pub const HORIZON_CATALOG_MODS: [(&str, &str, &str, u64); 26]", jt_rs)
         self.assertIn("pub const HORIZON_LIBRARY_MODS: [(&str, &str, &str, u64); 36]", jt_rs)
         self.assertIn("pub fn all_horizon_catalog_mods()", jt_rs)
         self.assertIn("pub fn install_hpack_modpack(", jt_rs)

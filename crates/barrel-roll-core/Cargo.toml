@@ -1,0 +1,8 @@
+[package]
+name = "barrel-roll-core"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "Rust port of the client-side flight rotation of Do a Barrel Roll (engine-independent)"
+
+[dependencies]

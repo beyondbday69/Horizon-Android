@@ -412,6 +412,12 @@ impl FrameUniforms {
         // Packs take gbufferProjection for a plain perspective (they invert only its perspective
         // terms): the view bob and the nausea spin belong to the model-view, as GL drew them.
         let view = frame.bob * frame.spin * crate::camera::view_matrix(frame.yaw, frame.pitch);
+        // Camera Overhaul's roll turns the view itself, so packs see it in the view matrix.
+        let view = if frame.roll == 0.0 {
+            view
+        } else {
+            view * Mat4::from_rotation_z(frame.roll.to_radians())
+        };
         let projection = Mat4::perspective_rh_gl(
             frame.fov_degrees.to_radians(),
             aspect,

@@ -14901,6 +14901,14 @@ impl Game<'_> {
             ),
         };
         let (view_yaw, view_pitch) = self.shaken_view(view_yaw, view_pitch);
+        // Camera Overhaul: its pitch and yaw join the camera angles (like a mod's
+        // shake above); its roll banks the view itself, below.
+        let [co_pitch, co_yaw, camera_overhaul_roll] = self.native_camera_overhaul();
+        // Do a Barrel Roll's roll joins Camera Overhaul's; both are already in the
+        // view's own frame (GameRendererMixin / CameraMixin).
+        let camera_roll = camera_overhaul_roll + self.native_barrel_roll();
+        let view_yaw = view_yaw + co_yaw;
+        let view_pitch = (view_pitch + co_pitch).clamp(-90.0, 90.0);
         self.audio
             .set_listener([camera.x, camera.y, camera.z], view_yaw, view_pitch);
         let block = [
@@ -15238,7 +15246,7 @@ impl Game<'_> {
         self.view_frustum = self
             .renderer
             .as_ref()
-            .map(|r| r.camera_frustum(fov_degrees, yaw, pitch, bob * spin, depth_far));
+            .map(|r| r.camera_frustum(fov_degrees, yaw, pitch, camera_roll, bob * spin, depth_far));
         // Keep the buffer local while builders need mutable access to the game.
         let mut entities = std::mem::take(&mut self.entity_vertices);
         entities.clear();
@@ -15341,6 +15349,7 @@ impl Game<'_> {
             first_person: eye.is_none() || title || !self.view.detached,
             bob,
             spin,
+            roll: camera_roll,
             sky,
             shadow_scene_revision: (self.world.revision, self.world.chunks.membership_revision()),
             shadow_cache: self.settings.horizon.shadow_cache,
@@ -18168,6 +18177,9 @@ impl Game<'_> {
                     self.extras_retry()?;
                     self.apply_mouse_look();
                     self.pad_look(elapsed.as_secs_f32());
+                    // Do a Barrel Roll folds this frame's look into the gliding
+                    // orientation before the flight moves and the frame renders.
+                    self.native_barrel_roll_frame(elapsed.as_secs_f64());
                     self.advance_flight();
                     self.tick_world_icon();
                     let ticked = Instant::now();
@@ -20154,6 +20166,7 @@ pub(crate) fn loading_frame(hud: &HudBatch) -> Frame<'_> {
         first_person: true,
         bob: glam::Mat4::IDENTITY,
         spin: glam::Mat4::IDENTITY,
+        roll: 0.0,
         sky: horizon_client::environment::Sky::default(),
         shadow_scene_revision: (0, 0),
         shadow_cache: false,

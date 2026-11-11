@@ -300,6 +300,8 @@ impl Game<'_> {
         let mut bolts = std::mem::take(&mut self.bolts);
         bolts.retain_mut(|b| {
             if b.life == 2 {
+                // Camera Overhaul: a bolt near the player shudders the view.
+                super::android_bundled::native_camera_overhaul_lightning(b.at);
                 let pitch = 0.8 + self.world.random.next_float() * 0.2;
                 self.audio.play(
                     "minecraft:entity.lightning_bolt.thunder",

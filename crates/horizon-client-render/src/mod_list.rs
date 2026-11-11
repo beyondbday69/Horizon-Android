@@ -150,6 +150,13 @@ impl ModList {
                     disabled.insert(id.to_owned());
                 }
             }
+            // Importable `.hnmod` features (not built in like the four above): off
+            // until the player turns them on.
+            for id in ["camera_overhaul", "barrel_roll"] {
+                if !enabled.contains(id) {
+                    disabled.insert(id.to_owned());
+                }
+            }
             disabled
         };
         let mut keys: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();

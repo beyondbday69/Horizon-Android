@@ -84,3 +84,21 @@ copyright 2026 d3grando, MIT. Exact revisions and adaptation notes are recorded 
 module retains its full MIT LICENSE. Changes provide static Android hook
 adapters, opt-in configuration, profile-state reset and compatibility guards.
 These are a fixed compiled set, not support for loading arbitrary native mods.
+
+## Camera Overhaul
+
+`crates/camera-overhaul-core` is a Rust port of the camera logic of
+[CameraOverhaul](https://github.com/Mirsario/Minecraft-CameraOverhaul) by Mirsario & Contributors,
+licensed under GPL-3.0 (`crates/camera-overhaul-core/LICENSE.md`). Its files keep their GPL-3.0
+headers. Because it is linked into the game, the APK that includes it is a combined work under
+GPL-3.0; builds that leave this crate out are unaffected. Horizon is not affiliated with Mirsario.
+
+## Do a Barrel Roll
+
+`crates/barrel-roll-core` is a Rust port of the client-side flight rotation of
+[Do a Barrel Roll](https://github.com/enjarai/do-a-barrel-roll) by enjarai, which is based on
+Cool Elytra Roll by Jorbon. Licensed under GPL-3.0 (`crates/barrel-roll-core/LICENSE.md`). Only
+the orientation, input, banking, smoothing and camera roll are ported; thrusting (accelerating
+without fireworks) and every server-side or sync feature are left out. Because it is linked into
+the game, the APK that includes it is a combined work under GPL-3.0; builds that leave this crate
+out are unaffected. Horizon is not affiliated with enjarai or Jorbon.

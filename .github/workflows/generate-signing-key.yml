@@ -1,0 +1,62 @@
+# Creates ONE Android signing keystore for the dev APKs (docs/android-signing.md).
+# Run it by hand from the Actions tab ("Run workflow"); it uploads a 1-day artifact.
+# It never prints the keystore, the passwords or the base64: every value is masked
+# the moment it exists, and only files carry them.
+name: generate-signing-key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Generate the keystore
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          alias_name='horizon'
+          # A strong random password, masked the moment it exists so it can never
+          # reach the log. Alphanumeric only, so the mask and the shell stay happy.
+          password="$(openssl rand -base64 48 | tr -d '/+=' | cut -c1-32)"
+          echo "::add-mask::$password"
+          # RSA 4096, valid 100 years. -v sets C=US and the other empty fields to UNKNOWN.
+          keytool -genkeypair -v \
+            -keystore "$work/keystore.jks" -storetype PKCS12 \
+            -alias "$alias_name" -keyalg RSA -keysize 4096 -sigalg SHA256withRSA \
+            -validity 36500 \
+            -storepass "$password" -keypass "$password" \
+            -dname 'CN=Horizon Android Dev, OU=Horizon, O=Horizon, C=US'
+          base64 -w0 "$work/keystore.jks" > "$work/keystore.jks.base64"
+          echo "::add-mask::$(cat "$work/keystore.jks.base64")"
+          {
+            echo "keystore file:      keystore.jks  (PKCS12)"
+            echo "key alias:          $alias_name"
+            echo "store/key password: $password"
+            echo
+            echo "Repository secrets to set (Settings > Secrets and variables > Actions):"
+            echo "  ANDROID_KEYSTORE_BASE64    = the whole contents of keystore.jks.base64"
+            echo "  ANDROID_KEYSTORE_PASSWORD  = the password above"
+            echo "  ANDROID_KEY_ALIAS          = $alias_name"
+            echo
+            echo "Keep keystore.jks and this file in a private backup, then delete the artifact."
+            echo "Setting the secrets makes new dev APKs sign with this key and update in place."
+          } > "$work/credentials.txt"
+          mkdir -p dist
+          cp "$work/keystore.jks" "$work/keystore.jks.base64" "$work/credentials.txt" dist/
+          echo "Artifact ready: keystore.jks, keystore.jks.base64, credentials.txt (none printed)."
+          rm -rf "$work"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: horizon-signing-key
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1

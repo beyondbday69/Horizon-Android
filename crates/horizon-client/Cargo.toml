@@ -12,6 +12,10 @@ horizon-assets = { path = "../horizon-assets" }
 horizon-client-core = { path = "../horizon-client-core" }
 horizon-client-input = { path = "../horizon-client-input" }
 horizon-client-render = { path = "../horizon-client-render" }
+# Mirsario's Camera Overhaul, ported (GPL-3.0): the built-in camera effects (THIRD_PARTY_NOTICES.md).
+camera-overhaul-core = { path = "../camera-overhaul-core" }
+# Do a Barrel Roll's flight rotation, ported (GPL-3.0): the built-in barrel_roll feature.
+barrel-roll-core = { path = "../barrel-roll-core" }
 horizon-command = { path = "../horizon-command" }
 horizon-items = { path = "../horizon-items" }
 horizon-core = { path = "../horizon-core" }
