@@ -1,0 +1,14 @@
+# hello: the smallest native mod (docs/native-mods.md). Its one helper is injected into the
+# game's own source by horizon-mixins when the game is built; no Horizon source file is edited
+# by hand, so this folder is the whole mod.
+[mod]
+id = "hello"
+version = "0.1.0"
+
+[[injection]]
+id = "frame"
+hook = "frame"
+hook_version = 1
+kind = "HEAD"
+helper = "frame.rs"
+bindings = [{ name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" }]
