@@ -19,6 +19,7 @@ horizon-client = { path = "../horizon-client", default-features = false }
 # the same camera Overhaul dependency for `game/android_bundled.rs`.
 camera-overhaul-core = { path = "../camera-overhaul-core" }
 barrel-roll-core = { path = "../barrel-roll-core" }
+sound-physics-core = { path = "../sound-physics-core" }
 android_logger = "0.15"
 regex = "1"
 horizon-hdr = { path = "../horizon-hdr" }

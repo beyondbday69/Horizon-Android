@@ -16,6 +16,7 @@ horizon-client-render = { path = "../horizon-client-render" }
 camera-overhaul-core = { path = "../camera-overhaul-core" }
 # Do a Barrel Roll's flight rotation, ported (GPL-3.0): the built-in barrel_roll feature.
 barrel-roll-core = { path = "../barrel-roll-core" }
+sound-physics-core = { path = "../sound-physics-core" }
 horizon-command = { path = "../horizon-command" }
 horizon-items = { path = "../horizon-items" }
 horizon-core = { path = "../horizon-core" }
