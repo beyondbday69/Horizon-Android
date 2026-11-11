@@ -465,6 +465,9 @@ pub struct Frame<'a> {
     /// The spinning effect multiplied into the level's projection only
     /// (`crate::camera::spinning_effect_matrix`), not the hand's.
     pub spin: Mat4,
+    /// Camera roll in degrees (Camera Overhaul): turned into the view after the
+    /// yaw/pitch rotation, so the screen banks about the view axis.
+    pub roll: f32,
     pub sky: Sky,
     /// Block edits and chunk membership that can change the shader pack's shadow map.
     pub shadow_scene_revision: (u64, u64),
@@ -5767,6 +5770,7 @@ impl Renderer {
             frame.fov_degrees,
             frame.yaw,
             frame.pitch,
+            frame.roll,
             frame.depth_far,
         ))
     }
@@ -5777,17 +5781,18 @@ impl Renderer {
         fov_degrees: f32,
         yaw: f32,
         pitch: f32,
+        roll: f32,
         bob: Mat4,
         depth_far: f32,
     ) -> Frustum {
-        let views = ViewSet::single(self.screen_view(fov_degrees, yaw, pitch, depth_far));
+        let views = ViewSet::single(self.screen_view(fov_degrees, yaw, pitch, roll, depth_far));
         Frustum {
             planes: frustum(views.cull().view_proj(bob)),
         }
     }
-    fn screen_view(&self, fov_degrees: f32, yaw: f32, pitch: f32, far: f32) -> View {
+    fn screen_view(&self, fov_degrees: f32, yaw: f32, pitch: f32, roll: f32, far: f32) -> View {
         let aspect = self.config.width as f32 / self.config.height.max(1) as f32;
-        View::screen(yaw, pitch, fov_degrees, aspect, far)
+        View::screen(yaw, pitch, roll, fov_degrees, aspect, far)
     }
     fn update_lightmap(
         &mut self,

@@ -3,7 +3,7 @@ run-name: Android dev · ${{ github.sha }}
 
 on:
   push:
-    branches: [android, controls-overhaul-zip]
+    branches: [android, controls-overhaul-zip, camera-overhaul]
     paths:
       - 'crates/**'
       - 'Cargo.toml'
@@ -33,7 +33,7 @@ concurrency:
 jobs:
   build:
     # Never expose a signing secret to pull requests or arbitrary dispatch refs.
-    if: github.ref == 'refs/heads/android' || github.ref == 'refs/heads/controls-overhaul-zip'
+    if: github.ref == 'refs/heads/android' || github.ref == 'refs/heads/controls-overhaul-zip' || github.ref == 'refs/heads/camera-overhaul'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     strategy:
@@ -71,7 +71,10 @@ jobs:
               password = os.environ['RELEASE_KEYSTORE_PASSWORD']
               alias = os.environ['RELEASE_KEY_ALIAS']
           else:
-              raise SystemExit('Set ANDROID_KEYSTORE_BASE64 (or ANDROID_DEV_KEYSTORE_BASE64); see docs/android-dev-builds.md')
+              # A fork without either secret still builds a sideloadable dev APK: gradle
+              # falls back to the throwaway debug key the build generates (see
+              # docs/android-dev-builds.md to sign with a real key instead).
+              raise SystemExit(0)
           path = Path('.local/android/ci.keystore')
           path.parent.mkdir(parents=True, exist_ok=True)
           path.write_bytes(base64.b64decode(value, validate=True))
@@ -118,6 +121,8 @@ jobs:
           key: android-dev-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'packaging/android/build.gradle') }}-${{ github.sha }}
           restore-keys: |
             android-dev-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'packaging/android/build.gradle') }}-
+      - name: Test the bundled Camera Overhaul crate
+        run: cargo test -p camera-overhaul-core
       - name: Check public source and packaging boundaries
         run: |
           python3 tools/check_public_tree.py
@@ -149,6 +154,8 @@ jobs:
           (out / 'SHA256SUMS.txt').write_text(f'{hashlib.sha256(apk.read_bytes()).hexdigest()}  {name}\n')
           for source, dest in [('LICENSE', 'LICENSE.txt'), ('THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md')]:
               shutil.copyfile(source, out / dest)
+          # The importable Camera Overhaul bundle (Options > Mods > Import).
+          shutil.copyfile('camera_overhaul.hnmod', out / 'camera_overhaul.hnmod')
           (out / 'BUILD.json').write_text(json.dumps({'commit': sha, 'abi': abi, 'profile': 'release',
               'package': 'dev.horizon.android.dev', 'experimental': True,
               'run': f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'}, indent=2) + '\n')

@@ -1042,6 +1042,12 @@ pub fn frame_inputs(
 ) -> FrameInputs {
     let aspect = size[0] as f32 / size[1].max(1) as f32;
     let view = crate::camera::view_matrix(frame.yaw, frame.pitch);
+    // Camera Overhaul's roll turns the view itself (GameRendererMixin).
+    let view = if frame.roll == 0.0 {
+        view
+    } else {
+        view * Mat4::from_rotation_z(frame.roll.to_radians())
+    };
     let projection = super::world_projection(frame.fov_degrees, aspect, frame.depth_far)
         * frame.bob
         * frame.spin;

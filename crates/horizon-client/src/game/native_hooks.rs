@@ -11250,6 +11250,13 @@ impl Game<'_> {
         shake_pose(bounded_shake(shake, self.screen_effect_scale()))
     }
 
+    /// Camera Overhaul's offsets in degrees (pitch, yaw, roll) for this frame,
+    /// filled by `native_frame`, zero while its mod rests. The pitch and yaw join
+    /// the camera angles; the roll turns the view itself.
+    pub(super) fn native_camera_overhaul(&self) -> [f32; 3] {
+        super::android_bundled::native_camera_overhaul()
+    }
+
     /// What native mods hand shader packs in this frame (`native_shader_params`),
     /// with values that aren't finite as 0.
     pub(super) fn native_shader_params_now(&self, partial: f32) -> [[f32; 4]; 8] {

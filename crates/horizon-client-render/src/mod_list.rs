@@ -150,6 +150,11 @@ impl ModList {
                     disabled.insert(id.to_owned());
                 }
             }
+            // Camera Overhaul is an importable `.hnmod` (not built in like the four
+            // above): off until the player turns it on.
+            if !enabled.contains("camera_overhaul") {
+                disabled.insert("camera_overhaul".to_owned());
+            }
             disabled
         };
         let mut keys: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();

@@ -148,6 +148,10 @@ struct DynamicRuntimeState {
     carried_block_name: Option<String>,
     fullbright_was_active: bool,
     saved_gamma: Option<f32>,
+    /// Camera Overhaul (Mirsario): rests until its mod is on and the game plays.
+    camera_overhaul: Option<camera_overhaul_core::CameraOverhaul>,
+    /// This frame's offsets in degrees (pitch, yaw, roll), read by the renderer.
+    camera_offset: [f32; 3],
 }
 
 static DYNAMIC_RUNTIME: OnceLock<Mutex<DynamicRuntimeState>> = OnceLock::new();
@@ -1245,6 +1249,16 @@ pub(super) fn native_settings(game: &mut Game<'_>, mod_id: &str, buttons: &mut V
         return;
     }
 
+    if m.features.contains("camera_overhaul") {
+        let enabled = setting_bool(game, mod_id, "enabled", true);
+        let pct = setting_u32(game, mod_id, "intensity", 100);
+        let third = setting_bool(game, mod_id, "third_person", true);
+        buttons.push(format!("Camera Overhaul: {}", on_off(enabled)));
+        buttons.push(format!("Intensity: {pct}%"));
+        buttons.push(format!("In third person: {}", on_off(third)));
+        return;
+    }
+
     if !m.custom_buttons.is_empty() {
         for (idx, lbl) in m.custom_buttons.iter().enumerate() {
             let key = format!("opt_{idx}");
@@ -1564,6 +1578,22 @@ pub(super) fn native_settings_click(game: &mut Game<'_>, mod_id: &str, button: u
         return;
     }
 
+    if features.contains("camera_overhaul") {
+        match button {
+            0 => {
+                toggle_setting_bool(game, mod_id, "enabled", true);
+            }
+            1 => {
+                cycle_u32(game, mod_id, "intensity", &[25, 50, 75, 100, 150], 100);
+            }
+            2 => {
+                toggle_setting_bool(game, mod_id, "third_person", true);
+            }
+            _ => {}
+        }
+        return;
+    }
+
     if !custom_buttons.is_empty() {
         let key = format!("opt_{button}");
         toggle_setting_bool(game, mod_id, &key, true);
@@ -1595,6 +1625,8 @@ pub(super) fn native_frame(game: &mut Game<'_>, elapsed: Duration) {
     {
         recipes_frame::run(&mut *game);
     }
+    // Camera Overhaul's per-frame update, before the frame is rendered.
+    update_camera_overhaul(game, elapsed);
 }
 
 pub(super) fn native_panel_event(game: &mut Game<'_>, mod_id: &str, event: &NativePanelEvent) {
@@ -1818,6 +1850,116 @@ pub(super) fn native_camera_shake(game: &Game<'_>, partial: f32, shake: &mut Nat
     shake.pitch += phase.sin() * 0.65 * decay;
     shake.yaw += (phase * 1.37).cos() * 0.55 * decay;
     shake.roll += (phase * 2.1).sin() * 0.45 * decay;
+}
+
+// ============================================================================
+// Camera Overhaul (Mirsario & Contributors, GPL-3.0; crates/camera-overhaul-core)
+// ============================================================================
+
+/// Camera Overhaul's offsets in degrees (pitch, yaw, roll) for this frame: all
+/// zero while its mod rests. The renderer adds pitch and yaw to the camera
+/// angles and turns roll into the view.
+pub(super) fn native_camera_overhaul() -> [f32; 3] {
+    runtime().lock().map_or([0.0; 3], |g| g.camera_offset)
+}
+
+/// One `CameraOverhaul.on_explosion`.
+pub(super) fn native_camera_overhaul_explosion(at: [f64; 3]) {
+    if let Ok(mut g) = runtime().lock()
+        && let Some(co) = g.camera_overhaul.as_mut()
+    {
+        co.on_explosion(at);
+    }
+}
+
+/// One `CameraOverhaul.on_lightning`.
+pub(super) fn native_camera_overhaul_lightning(at: [f64; 3]) {
+    if let Ok(mut g) = runtime().lock()
+        && let Some(co) = g.camera_overhaul.as_mut()
+    {
+        co.on_lightning(at);
+    }
+}
+
+/// One `CameraOverhaul.on_hand_swing`.
+pub(super) fn native_camera_overhaul_hand_swing() {
+    if let Ok(mut g) = runtime().lock()
+        && let Some(co) = g.camera_overhaul.as_mut()
+    {
+        co.on_hand_swing();
+    }
+}
+
+/// Advances Camera Overhaul once a rendered frame from the local player's state
+/// (`CameraContext`), like the original's per-frame hook. The offsets rest (`[0; 3]`)
+/// while the mod is off, the game is paused or a screen is open.
+fn update_camera_overhaul(game: &Game<'_>, elapsed: Duration) {
+    use camera_overhaul_core::{CameraContext, CameraOverhaul, Perspective, config::Config};
+    let mut state = match runtime().lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+
+    // The mod that turns it on (with its own settings page), while the window plays.
+    let mod_id = (game.native_window() && game.native_playing())
+        .then(|| {
+            state
+                .mods
+                .values()
+                .find(|m| game.native_on(&m.id) && m.features.contains("camera_overhaul"))
+                .map(|m| m.id.clone())
+        })
+        .flatten();
+    let Some((mod_id, p)) = mod_id.zip(game.player.as_ref()) else {
+        state.camera_offset = [0.0; 3];
+        // Dropping the instance also drops the shakes queued before it was turned on.
+        state.camera_overhaul = None;
+        return;
+    };
+
+    let perspective = match game.camera_type {
+        super::perspective::CameraType::FirstPerson => Perspective::FirstPerson,
+        super::perspective::CameraType::ThirdPersonBack => Perspective::ThirdPerson,
+        super::perspective::CameraType::ThirdPersonFront => Perspective::ThirdPersonReverse,
+    };
+    // A ridden id is a mob (mount) or a boat/minecart (vehicle); the port treats
+    // them with their own settings.
+    let (is_riding_mount, is_riding_vehicle) = match game.riding {
+        Some(id) => (
+            game.mobs.iter().any(|m| m.id == id),
+            game.boats.iter().any(|b| b.id == id) || game.carts.iter().any(|c| c.id == id),
+        ),
+        None => (false, false),
+    };
+    let eye = game.eye_position().unwrap_or([p.position.x, p.position.y, p.position.z]);
+    let ctx = CameraContext {
+        is_swimming: p.swimming,
+        is_flying: p.fall_flying,
+        is_sprinting: p.sprinting,
+        is_riding_mount,
+        is_riding_vehicle,
+        velocity: [p.velocity.x, p.velocity.y, p.velocity.z],
+        perspective,
+        position: eye,
+        pitch: f64::from(game.pitch),
+        yaw: f64::from(game.yaw),
+    };
+
+    let off = {
+        let co = state
+            .camera_overhaul
+            .get_or_insert_with(|| CameraOverhaul::new(Config::default()));
+        co.config.general.enable_in_third_person =
+            setting_bool(game, &mod_id, "third_person", true);
+        co.update(&ctx, elapsed.as_secs_f64())
+    };
+    // The mod's own Intensity slider scales the offsets, not the port's smoothing.
+    let k = f64::from(setting_u32(game, &mod_id, "intensity", 100)) / 100.0;
+    state.camera_offset = [
+        (off.pitch * k) as f32,
+        (off.yaw * k) as f32,
+        (off.roll * k) as f32,
+    ];
 }
 
 pub(super) fn native_hud(

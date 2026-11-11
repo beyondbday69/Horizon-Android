@@ -84,3 +84,11 @@ copyright 2026 d3grando, MIT. Exact revisions and adaptation notes are recorded 
 module retains its full MIT LICENSE. Changes provide static Android hook
 adapters, opt-in configuration, profile-state reset and compatibility guards.
 These are a fixed compiled set, not support for loading arbitrary native mods.
+
+## Camera Overhaul
+
+`crates/camera-overhaul-core` is a Rust port of the camera logic of
+[CameraOverhaul](https://github.com/Mirsario/Minecraft-CameraOverhaul) by Mirsario & Contributors,
+licensed under GPL-3.0 (`crates/camera-overhaul-core/LICENSE.md`). Its files keep their GPL-3.0
+headers. Because it is linked into the game, the APK that includes it is a combined work under
+GPL-3.0; builds that leave this crate out are unaffected. Horizon is not affiliated with Mirsario.
