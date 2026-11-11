@@ -41,6 +41,14 @@ jobs:
           rustup show
           rustup target add aarch64-linux-android
           cargo install cargo-ndk --version 3.5.4 --locked
+      # The branch's committed Cargo.lock is missing several workspace members, so every
+      # `--locked` step (native_build.sh's `cargo fetch --locked` included) refuses to run.
+      # Refresh it and commit it, because native_build.sh archives HEAD.
+      - name: Refresh the stale Cargo.lock
+        run: |
+          cargo fetch
+          git add Cargo.lock
+          git -c user.email=ci@example.invalid -c user.name=ci commit -q -m "ci: refresh Cargo.lock" --no-verify
       # As the native build does: the fast profile needs more memory than the runner has.
       - name: Make room for the build
         run: |
