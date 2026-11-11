@@ -7,8 +7,7 @@ version = "0.1.0"
 
 [[injection]]
 id = "frame"
-hook = "frame"
-hook_version = 1
+target = "horizon_client::game::native_hooks::Game<'_>::native_frame"
 kind = "HEAD"
 helper = "frame.rs"
 bindings = [{ name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" }]

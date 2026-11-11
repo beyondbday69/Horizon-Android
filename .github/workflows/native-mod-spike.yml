@@ -52,6 +52,12 @@ jobs:
           sudo chmod 600 "$where/release.swap"
           sudo mkswap "$where/release.swap" > /dev/null
           sudo swapon "$where/release.swap"
+      - name: Point the mixins tool at a revision that exists
+        run: |
+          # native_build.sh pins a horizon-mixins revision that is not in the public repository,
+          # so the spike uses its current main. Drop this once the pin is fixed upstream.
+          sed -i 's|^MIXINS_REV=.*|MIXINS_REV=e59da9094f0c2fdda6c627fe9eff22dec6a906f0|' packaging/android/native_build.sh
+          grep -n '^MIXINS_REV=' packaging/android/native_build.sh
       - name: Build the game with the hello mod compiled in
         run: |
           bash packaging/android/native_build.sh "$PWD" out native-mods/hello/mixins/hello
