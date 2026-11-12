@@ -13386,6 +13386,8 @@ impl Game<'_> {
             .is_some_and(|p| p.auto_spin_attack_ticks > 0);
         let items = self.visible_hand_items();
         let off_hand_empty = items[1].is_none();
+        // Visible Hands (our own; the built-in `visible_hands` mod).
+        let visible_hands = android_bundled::visible_hands_on(self);
         for (i, (hand, item)) in Hand::BOTH.into_iter().zip(items).enumerate() {
             if !shown[i] {
                 continue;
@@ -13426,6 +13428,14 @@ impl Game<'_> {
                 self.first_person_arm(left, m, packed, &mut out);
                 continue;
             };
+            // Visible Hands: vanilla submits this arm only for an empty hand,
+            // which is what leaves a held item floating. A map is posed on its
+            // own arms below.
+            if visible_hands && maps::map_id(&stack).is_none() && !self.own_invisible() {
+                let m = to_world
+                    * horizon_client::first_person::player_arm_pose(left, inverse_height, attack);
+                self.first_person_arm(left, m, packed, &mut out);
+            }
             if let Some(id) = maps::map_id(&stack) {
                 use horizon_client::first_person::{MapHold, map_arm_poses, one_handed_map_pose};
                 let hold = MapHold::of(hand, off_hand_empty);

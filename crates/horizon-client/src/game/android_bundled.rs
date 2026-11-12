@@ -1295,6 +1295,12 @@ pub(super) fn native_settings(game: &mut Game<'_>, mod_id: &str, buttons: &mut V
         return;
     }
 
+    if m.features.contains("visible_hands") {
+        let enabled = setting_bool(game, mod_id, "enabled", true);
+        buttons.push(format!("Visible Hands: {}", on_off(enabled)));
+        return;
+    }
+
     if !m.custom_buttons.is_empty() {
         for (idx, lbl) in m.custom_buttons.iter().enumerate() {
             let key = format!("opt_{idx}");
@@ -1662,6 +1668,16 @@ pub(super) fn native_settings_click(game: &mut Game<'_>, mod_id: &str, button: u
             }
             3 => {
                 cycle_u32(game, mod_id, "reverb_gain", &[50, 75, 100, 150, 200], 100);
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    if features.contains("visible_hands") {
+        match button {
+            0 => {
+                toggle_setting_bool(game, mod_id, "enabled", true);
             }
             _ => {}
         }
@@ -2112,6 +2128,24 @@ fn update_sound_physics(game: &mut Game<'_>, state: &mut DynamicRuntimeState) {
         &mut state.sound_physics_done,
         &mut state.sound_physics_rate,
     );
+}
+
+// ============================================================================
+// Visible Hands (our own): the player's arm under a held item
+// ============================================================================
+
+/// Whether the built-in `visible_hands` mod is on and switched on: the hand
+/// renderer then submits the player's own arm under the item it holds, which
+/// vanilla does only for an empty hand.
+pub(super) fn visible_hands_on(game: &Game<'_>) -> bool {
+    let Ok(guard) = runtime().lock() else {
+        return false;
+    };
+    guard.mods.values().any(|m| {
+        game.native_on(&m.id)
+            && m.features.contains("visible_hands")
+            && setting_bool(game, &m.id, "enabled", true)
+    })
 }
 
 // ============================================================================

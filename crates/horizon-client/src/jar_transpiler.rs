@@ -274,6 +274,10 @@ pub fn canonical_horizon_mod_meta(mod_id: &str) -> Option<(&'static str, &'stati
             "Do a Barrel Roll",
             "Fly your elytra freely: drag to roll and pitch, lean into turns, and strafe to yaw, with banking and smoothing.",
         )),
+        "visible_hands" | "visiblehands" => Some((
+            "Visible Hands",
+            "Shows your own arm and hand holding the item in first person, so a held item is held instead of left floating.",
+        )),
         "auto_totem" | "autototem" => Some((
             "Auto Totem Helper",
             "Displays remaining Totems of Undying on the HUD and warns when off-hand totem is depleted.",
@@ -650,6 +654,13 @@ pub fn infer_features_from_id_and_signals(
         || combined.contains("sound physics")
     {
         features.insert("sound_physics".to_owned());
+    }
+    if matches!(id_low.as_str(), "visible_hands" | "visiblehands")
+        || combined.contains("visiblehands")
+        || combined.contains("visible_hands")
+        || combined.contains("visible hands")
+    {
+        features.insert("visible_hands".to_owned());
     }
     if features.is_empty() {
         features.insert("hud_overlay".to_owned());
@@ -2403,9 +2414,9 @@ fn mod_command(game: &mut Game<'_>, command: &str, ran: &mut bool) {{
 }
 
 
-/// Complete catalog of 26 official Horizon Native Mods (`.hnmod`) available in `Mods > Horizon`
-/// alongside the 4 `ANDROID_BUNDLED` mods (30 total = 3 pages of 10).
-pub const HORIZON_CATALOG_MODS: [(&str, &str, &str, u64); 26] = [
+/// Complete catalog of 27 official Horizon Native Mods (`.hnmod`) available in `Mods > Horizon`
+/// alongside the 4 `ANDROID_BUNDLED` mods (31 total).
+pub const HORIZON_CATALOG_MODS: [(&str, &str, &str, u64); 27] = [
     (
         "wrench",
         "Wrench",
@@ -2509,6 +2520,12 @@ pub const HORIZON_CATALOG_MODS: [(&str, &str, &str, u64); 26] = [
         81_200,
     ),
     (
+        "visible_hands",
+        "Visible Hands",
+        "Shows your own arm and hand holding the item in first person, so a held item is held instead of left floating.",
+        45_600,
+    ),
+    (
         "armor_status",
         "Armor Status",
         "Displays equipped armor pieces and held items with remaining durability and color-coded percentages.",
@@ -2565,7 +2582,7 @@ pub const HORIZON_CATALOG_MODS: [(&str, &str, &str, u64); 26] = [
 ];
 
 
-/// Extended Horizon Mod Library (36 additional official & curated Horizon mods, bringing the store to 60 mods).
+/// Extended Horizon Mod Library (36 additional official & curated Horizon mods, bringing the store to 63 mods).
 pub const HORIZON_LIBRARY_MODS: [(&str, &str, &str, u64); 36] = [
     (
         "far_view",
@@ -2785,7 +2802,7 @@ pub const HORIZON_LIBRARY_MODS: [(&str, &str, &str, u64); 36] = [
     ),
 ];
 
-/// Returns all 62 Horizon Mod Store entries (`HORIZON_CATALOG_MODS` + `HORIZON_LIBRARY_MODS`).
+/// Returns all 63 Horizon Mod Store entries (`HORIZON_CATALOG_MODS` + `HORIZON_LIBRARY_MODS`).
 pub fn all_horizon_catalog_mods() -> Vec<(&'static str, &'static str, &'static str, u64)> {
     let mut out = Vec::with_capacity(HORIZON_CATALOG_MODS.len() + HORIZON_LIBRARY_MODS.len());
     out.extend_from_slice(&HORIZON_CATALOG_MODS);
