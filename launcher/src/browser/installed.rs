@@ -32,7 +32,8 @@ pub struct Entry {
     pub number: String,
     /// Relative to the game folder: `resourcepacks/<name>`.
     pub file: String,
-    /// The checksum the download was checked against: `SHA-512:<hex>`.
+    /// The checksum the file was checked against: `SHA-512:<hex>` for a download,
+    /// `SHA-256:<hex>` for Horizon's registry and a file the player added.
     pub checksum: String,
     pub page: String,
     /// Installed because another pack needs it.
@@ -318,7 +319,15 @@ pub fn remove(home: &Path, name: &str) -> Result<Entry, String> {
         .lookup(name)
         .cloned()
         .ok_or_else(|| format!("{name} wasn't installed by the browser."))?;
-    if entry.kind == Kind::Mod && entry.source != SourceId::Horizon {
+    if entry.kind == Kind::Mod && entry.source == SourceId::Local {
+        // A file the player added: remove the file itself (not a folder), then its switch.
+        match entry.path(home).map_or(Ok(()), fs::remove_file) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(format!("{}: {e}", entry.file)),
+        }
+        super::java::set_enabled(home, &entry.project, false)?;
+    } else if entry.kind == Kind::Mod && entry.source != SourceId::Horizon {
         super::java::remove(home, &entry)?;
     } else {
         match entry.path(home).map_or(Ok(()), fs::remove_file) {
@@ -329,7 +338,9 @@ pub fn remove(home: &Path, name: &str) -> Result<Entry, String> {
     }
     if let Some(id) = super::horizon::mod_id(&entry).filter(|_| entry.source == SourceId::Horizon) {
         // The `.hmod` a mod that turned native left behind (horizon::install_version).
-        if entry.file.ends_with(".hnmod") || (entry.file.starts_with("horizon-native-mods/") && entry.file.ends_with(".hmod")) {
+        if entry.file.ends_with(".hnmod")
+            || (entry.file.starts_with("horizon-native-mods/") && entry.file.ends_with(".hmod"))
+        {
             let _ = fs::remove_file(home.join(super::java::MODS_DIR).join(format!("{id}.hmod")));
         }
         super::java::set_enabled(home, id, false)?;

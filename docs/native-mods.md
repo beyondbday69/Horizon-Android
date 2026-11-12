@@ -1457,9 +1457,13 @@ API 359 adds a living entity jumping (`native_living_jump`). Bundles need "hooks
 `performance`, while game logic runs up to about twice as slow. Use it while developing, not for playing;
 `performance` stays the default for players and releases (step 5 below).
 
-In the window: install a native mod from the Mods page, into the instance picked on the left ("Installs into
-{instance}", shown even with one instance). The first one shows a trust notice once (native mods aren't sandboxed; the
-first build downloads Rust and can take 20 to 30 minutes; later builds are faster); `mods install` prints it too. Each
+In the window: install a native mod from the Mods page, or add a `.hnmod` file already on this computer with
+**Add mod file…** (or `horizon-launcher mods add-file FILE [--instance NAME]`, or by dropping it on the window), into
+the instance picked on the left ("Installs into {instance}", shown even with one instance). A file is copied to
+`horizon-native-mods/<id>.hnmod` after the same check a download gets, and turned on; nothing from it is compiled or
+run until the build, which asks before it runs. The first native mod installed from the registry or a GitHub link shows
+a trust notice once (native mods aren't sandboxed; the first build downloads Rust and can take 20 to 30 minutes; later
+builds are faster); `mods install` prints it too. Each
 installed native mod's row says "Installed in {instance}" and has **Open folder** (`<instance>/horizon-native-mods/`).
 The installed list has a **Native build of {instance}** row for the instance picked on the left, never another's:
 

@@ -24,6 +24,12 @@ Installed list, updates and Remove are that instance's: picking another instance
 instance it installs into when there is more than one. The CLI's `mods list|install|update|remove|enable|disable` take
 `--instance <name>` (default: the selected one). A modpack becomes an instance of its own.
 
+A mod file already on the computer is added with **Add mod file…** (or `horizon-launcher mods add-file FILE`, or by
+dropping it on the window). An `.hmod` is checked like a registry file, copied to `horizon-mods/<id>.hmod` and listed,
+off until turned on; an `.hnmod` is checked like a registry bundle, copied to `horizon-native-mods/<id>.hnmod`, turned
+on and waits for the instance's native build ([native-mods.md](native-mods.md)). Neither runs while it is added, and an
+existing file is never replaced.
+
 By default a search shows only what runs: Java mods made for 26.3, resource packs made for 26.3, and every modpack. **Show everything** lists the rest of the kind too, each marked with how well it runs; what doesn't run is
 never offered for install.
 

@@ -602,6 +602,15 @@ enum ModsCmd {
         #[arg(long)]
         instance: Option<String>,
     },
+    /// Add a mod file from this computer: an `.hmod` (sandboxed, read when the game starts) or an
+    /// `.hnmod` (native code, built into the instance). Checked as a download is; nothing runs.
+    AddFile {
+        /// The .hmod or .hnmod file
+        path: PathBuf,
+        /// The instance (default: the selected one)
+        #[arg(long)]
+        instance: Option<String>,
+    },
     /// Install a native mod from a GitHub link (docs/native-mods.md, "Install from GitHub"):
     /// https://github.com/OWNER/REPO (its latest release, else its default branch),
     /// .../releases/tag/TAG, .../tree/REF or .../commit/SHA. Resolved to an exact release file or
@@ -2213,6 +2222,7 @@ fn mods(action: ModsCmd, as_json: bool) -> Result<(), String> {
         | ModsCmd::Update { instance, .. }
         | ModsCmd::Remove { instance, .. }
         | ModsCmd::AddGithub { instance, .. }
+        | ModsCmd::AddFile { instance, .. }
         | ModsCmd::UpdateGithub { instance, .. }
         | ModsCmd::Enable { instance, .. }
         | ModsCmd::Disable { instance, .. } => match instance {
@@ -2541,6 +2551,20 @@ fn mods(action: ModsCmd, as_json: bool) -> Result<(), String> {
                         }
                     }
                 }
+            }
+        }
+        ModsCmd::AddFile { path, .. } => {
+            if java.is_some() {
+                return Err(
+                    "Mod files are added to Horizon instances: a Java one runs jars.".into(),
+                );
+            }
+            let added = horizon_launcher::browser::local::install(&home, &path)?;
+            println!("Added {} {} ({})", added.title, added.version, added.file);
+            if added.native {
+                println!("Build it next: horizon-launcher native-build --trust-native-code");
+            } else {
+                println!("Turn it on: horizon-launcher mods enable {}", added.id);
             }
         }
         ModsCmd::AddGithub {
@@ -3035,13 +3059,13 @@ fn instance(action: InstanceCmd, as_json: bool) -> Result<(), String> {
                     return Err(format!(
                         "No other launcher has an instance called {name}: \
                          horizon-launcher instance others"
-                    ))
+                    ));
                 }
                 _ => {
                     return Err(format!(
                         "More than one launcher has an instance called {name}: say which \
                          with --folder."
-                    ))
+                    ));
                 }
             };
             let made = other_launchers::import(
@@ -3094,12 +3118,28 @@ fn instance(action: InstanceCmd, as_json: bool) -> Result<(), String> {
                         p.title, i.name
                     );
                 }
+                Dropped::Mod => {
+                    let i = match instance {
+                        Some(name) => instances::find(&name)?,
+                        None => instances::selected(),
+                    };
+                    let added = horizon_launcher::browser::local::install(&i.home, &file)?;
+                    println!(
+                        "Added {} {} to {} ({})",
+                        added.title, added.version, i.name, added.file
+                    );
+                    if added.native {
+                        println!(
+                            "Build it next: horizon-launcher native-build --trust-native-code"
+                        );
+                    }
+                }
                 Dropped::DataPack => {
                     return Err(format!(
                         "{} is a data pack: put it into a world with horizon-launcher worlds \
                          datapack-add <world> <file>",
                         file.display()
-                    ))
+                    ));
                 }
             }
         }

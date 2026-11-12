@@ -112,6 +112,16 @@ fn says_what_a_dropped_file_is() {
             (p, Ok(Dropped::Pack(packs::Kind::Shader)))
         },
         {
+            let p = dir.join("ruby.hmod");
+            put(&p, b"PK");
+            (p, Ok(Dropped::Mod))
+        },
+        {
+            let p = dir.join("veinminer.hnmod");
+            put(&p, b"PK");
+            (p, Ok(Dropped::Mod))
+        },
+        {
             let p = dir.join("folder.zip");
             zip_file(
                 &p,
