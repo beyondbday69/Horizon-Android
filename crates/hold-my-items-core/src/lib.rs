@@ -1631,8 +1631,13 @@ impl HmiState {
                 self.last_main_hand_swing_progress = 0.0;
                 self.main_hand_swinging = true;
                 self.main_swing_ticked_20tps = false;
-                if !already_just_started {
+                // The side only alternates between discrete swings: that is the sword
+                // combo. A held press (mining) keeps digging from the same side, as
+                // vanilla does, instead of rocking the tool back and forth.
+                if !already_just_started && !continuous_hold {
                     self.swing_m_hand = !self.swing_m_hand;
+                }
+                if !already_just_started {
                     self.main_swing_count = self.main_swing_count.wrapping_add(1);
                 }
             }
@@ -1652,7 +1657,7 @@ impl HmiState {
                 self.last_off_hand_swing_progress = 0.0;
                 self.off_hand_swinging = true;
                 self.off_swing_ticked_20tps = false;
-                if !already_just_started {
+                if !already_just_started && !continuous_hold {
                     self.swing_o_hand = !self.swing_o_hand;
                 }
             }
@@ -4302,5 +4307,14 @@ mod tests {
         state.on_swing_ex(true, &sword, &cfg, true);
         assert_eq!(state.swing_m_hand, combo_before_hold);
         assert_eq!(state.main_swing(0.5), prog_before_hold);
+
+        // Mining digs from one side: a held press that runs a swing to completion keeps
+        // the side instead of alternating it the way a discrete attack does.
+        let held_side = state.swing_m_hand;
+        for _ in 0..24 {
+            state.step_frame(0.032, 0.5, &sword, &off, &input, &cfg);
+            state.on_swing_ex(true, &sword, &cfg, true);
+            assert_eq!(state.swing_m_hand, held_side);
+        }
     }
 }
