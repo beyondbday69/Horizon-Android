@@ -1,0 +1,8 @@
+[package]
+name = "hold-my-items-core"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Rust port of Hold My Items 5.1.1's first-person hand and item animation engine (engine-independent)"
+
+[dependencies]

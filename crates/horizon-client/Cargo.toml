@@ -17,6 +17,9 @@ camera-overhaul-core = { path = "../camera-overhaul-core" }
 # Do a Barrel Roll's flight rotation, ported (GPL-3.0): the built-in barrel_roll feature.
 barrel-roll-core = { path = "../barrel-roll-core" }
 sound-physics-core = { path = "../sound-physics-core" }
+# Hold My Items' first-person hand & item animation engine, ported (MIT): the
+# built-in hold_my_items feature (THIRD_PARTY_NOTICES.md).
+hold-my-items-core = { path = "../hold-my-items-core" }
 horizon-command = { path = "../horizon-command" }
 horizon-items = { path = "../horizon-items" }
 horizon-core = { path = "../horizon-core" }

@@ -15,6 +15,7 @@ members = [
     "crates/camera-overhaul-core",
     "crates/barrel-roll-core",
     "crates/sound-physics-core",
+    "crates/hold-my-items-core",
     "crates/horizon-command",
     "crates/horizon-items",
     "crates/horizon-server-files",

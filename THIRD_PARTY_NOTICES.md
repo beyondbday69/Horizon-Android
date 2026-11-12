@@ -114,3 +114,14 @@ material tables are ported; the OpenAL EFX calls are replaced by this project's 
 debug ray rendering and the voice-chat integration are left out. Because it is linked into the
 game, the APK that includes it is a combined work under GPL-3.0; builds that leave this crate out
 are unaffected. Horizon is not affiliated with Sonic Ether or henkelmax.
+
+## Hold My Items
+
+`crates/hold-my-items-core` is a Rust port of the first-person hand and item animation engine of
+[Hold My Items](https://modrinth.com/mod/hold-my-items) 5.1.1, by way of
+[iuaititi's Horizon port](https://github.com/iuaiti/Hold-my-items-horizon), which is licensed under
+MIT (`crates/hold-my-items-core/LICENSE`, Copyright (c) 2026 iuaititi). The upstream mod's Lua
+scripts are licensed CC0-1.0. Only the animation maths are ported; the injector, the render
+takeover and the resource pack of the Horizon port are not. Horizon is not affiliated with the
+Hold My Items authors or with iuaititi.
+
