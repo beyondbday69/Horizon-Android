@@ -43,6 +43,12 @@ struct State {
     cached_maps: [Option<(i32, Vec<Vertex>)>; 2],
 }
 
+/// One swing's length in ticks while a block is being broken. Vanilla digs with a
+/// 6-tick swing whatever the tool (HMI's own base speed is for attacking, and its
+/// per-item speeds make a shovel or trident mine noticeably slower than the pickaxe).
+/// `modify_swing_max` still takes one tick off per Haste level, as vanilla does.
+const MINING_SWING_TICKS: u32 = 6;
+
 static STATE: OnceLock<Mutex<State>> = OnceLock::new();
 
 fn with_state<T>(run: impl FnOnce(&mut State) -> T) -> T {
@@ -356,6 +362,8 @@ impl Game<'_> {
         let left_now = self.left;
         let right_now = self.right;
         with_state(|s| {
+            s.hmi.swing_duration_override =
+                if breaking { Some(MINING_SWING_TICKS) } else { None };
             let continuous_hold = if is_main {
                 let cont = breaking || (left_now && s.left_continued);
                 s.left_continued = left_now;
@@ -453,7 +461,10 @@ impl Game<'_> {
         let off_flags = self.classify_stack(self.offhand.as_ref(), partial);
         let input = self.build_frame_input(partial, inspect_down);
 
+        let breaking = self.is_hmi_breaking_block();
         let sounds = with_state(|s| {
+            s.hmi.swing_duration_override =
+                if breaking { Some(MINING_SWING_TICKS) } else { None };
             s.hmi
                 .step_frame(dt, partial, &main_flags, &off_flags, &input, &cfg)
         });

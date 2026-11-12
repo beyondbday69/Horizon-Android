@@ -1391,6 +1391,10 @@ pub struct HmiState {
     pub main_hand_swing_ticks: u32,
     pub main_hand_swing_progress: f32,
     pub last_main_hand_swing_progress: f32,
+    /// Ticks one swing takes, when the host wants something other than the item's
+    /// own speed. The host sets this while a block is being broken, so mining
+    /// repeats at the game's swing rate instead of the attack rate.
+    pub swing_duration_override: Option<u32>,
     pub off_hand_swinging: bool,
     pub off_hand_swing_ticks: u32,
     pub off_hand_swing_progress: f32,
@@ -1504,6 +1508,7 @@ impl Default for HmiState {
             main_hand_swing_ticks: 0,
             main_hand_swing_progress: 0.0,
             last_main_hand_swing_progress: 0.0,
+            swing_duration_override: None,
             off_hand_swinging: false,
             off_hand_swing_ticks: 0,
             off_hand_swing_progress: 0.0,
@@ -1545,6 +1550,13 @@ impl HmiState {
             b
         };
         modified.max(2) as u32
+    }
+
+    /// One swing's length in ticks: the host's override when it set one (mining),
+    /// otherwise the item's own speed.
+    fn swing_base(&self, item: &ItemFlags, config: &Config) -> u32 {
+        self.swing_duration_override
+            .unwrap_or_else(|| item.swing_duration(config.swing_speed, &self.overrides))
     }
 
     pub fn clear_active_swings(&mut self) {
@@ -1592,7 +1604,7 @@ impl HmiState {
         continuous_hold: bool,
     ) {
         let max_ticks = Self::modify_swing_max(
-            item.swing_duration(config.swing_speed, &self.overrides),
+            self.swing_base(item, config),
             self.last_haste,
             self.last_fatigue,
         );
@@ -1661,7 +1673,7 @@ impl HmiState {
         self.last_fatigue = fatigue;
 
         let max_main = Self::modify_swing_max(
-            main_item.swing_duration(config.swing_speed, &self.overrides),
+            self.swing_base(main_item, config),
             dig_speed,
             fatigue,
         );
@@ -1686,7 +1698,7 @@ impl HmiState {
         }
 
         let max_off = Self::modify_swing_max(
-            off_item.swing_duration(config.swing_speed, &self.overrides),
+            self.swing_base(off_item, config),
             dig_speed,
             fatigue,
         );
@@ -1732,7 +1744,7 @@ impl HmiState {
             self.main_swing_ticked_20tps = false;
         } else if dt > 0.0 {
             let max_main = Self::modify_swing_max(
-                main_item.swing_duration(config.swing_speed, &self.overrides),
+                self.swing_base(main_item, config),
                 self.last_haste,
                 self.last_fatigue,
             ) as f32;
@@ -1759,7 +1771,7 @@ impl HmiState {
             self.off_swing_ticked_20tps = false;
         } else if dt > 0.0 {
             let max_off = Self::modify_swing_max(
-                off_item.swing_duration(config.swing_speed, &self.overrides),
+                self.swing_base(off_item, config),
                 self.last_haste,
                 self.last_fatigue,
             ) as f32;
