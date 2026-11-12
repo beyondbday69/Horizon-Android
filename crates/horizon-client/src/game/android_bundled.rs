@@ -1297,7 +1297,9 @@ pub(super) fn native_settings(game: &mut Game<'_>, mod_id: &str, buttons: &mut V
 
     if m.features.contains("visible_hands") {
         let enabled = setting_bool(game, mod_id, "enabled", true);
+        let animation = setting_bool(game, mod_id, "animation", true);
         buttons.push(format!("Visible Hands: {}", on_off(enabled)));
+        buttons.push(format!("Our own animation: {}", on_off(animation)));
         return;
     }
 
@@ -1678,6 +1680,9 @@ pub(super) fn native_settings_click(game: &mut Game<'_>, mod_id: &str, button: u
         match button {
             0 => {
                 toggle_setting_bool(game, mod_id, "enabled", true);
+            }
+            1 => {
+                toggle_setting_bool(game, mod_id, "animation", true);
             }
             _ => {}
         }
@@ -2134,18 +2139,22 @@ fn update_sound_physics(game: &mut Game<'_>, state: &mut DynamicRuntimeState) {
 // Visible Hands (our own): the player's arm under a held item
 // ============================================================================
 
-/// Whether the built-in `visible_hands` mod is on and switched on: the hand
-/// renderer then submits the player's own arm under the item it holds, which
-/// vanilla does only for an empty hand.
-pub(super) fn visible_hands_on(game: &Game<'_>) -> bool {
+/// Visible Hands' settings: whether the arm shows under a held item, and whether
+/// it moves with our own animation. `(false, false)` when the mod is off.
+pub(super) fn visible_hands_settings(game: &Game<'_>) -> (bool, bool) {
     let Ok(guard) = runtime().lock() else {
-        return false;
+        return (false, false);
     };
-    guard.mods.values().any(|m| {
-        game.native_on(&m.id)
-            && m.features.contains("visible_hands")
-            && setting_bool(game, &m.id, "enabled", true)
-    })
+    guard
+        .mods
+        .values()
+        .find(|m| game.native_on(&m.id) && m.features.contains("visible_hands"))
+        .map_or((false, false), |m| {
+            (
+                setting_bool(game, &m.id, "enabled", true),
+                setting_bool(game, &m.id, "animation", true),
+            )
+        })
 }
 
 // ============================================================================
