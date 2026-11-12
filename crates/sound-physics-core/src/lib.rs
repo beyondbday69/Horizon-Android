@@ -26,6 +26,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod blocks;
+
 use std::collections::HashMap;
 use std::f64::consts::TAU;
 

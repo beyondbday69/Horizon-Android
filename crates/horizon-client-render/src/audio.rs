@@ -45,6 +45,13 @@ struct Channel {
     world: u32,
     /// The sound file it started and when, to tell another player's copy of it.
     started: Option<(String, std::time::Instant)>,
+    /// Sound Physics Remastered's environment for this source (`set_environment`):
+    /// the direct path's gain and low-pass and the four reverb sends, or none.
+    environment: Option<sound_physics_core::Environment>,
+    /// The direct path's one-pole low-pass state.
+    low_pass: f32,
+    /// Each reverb send's one-pole low-pass state.
+    send_low_pass: [f32; sound_physics_core::SENDS],
 }
 #[derive(Default)]
 struct Mixer {
@@ -68,6 +75,14 @@ struct Mixer {
     /// The stream reported its device gone (`Library.isCurrentDeviceDisconnected`).
     #[cfg(feature = "audio")]
     device_lost: bool,
+    /// Sound Physics Remastered's config (`Audio::set_sound_physics`): the four
+    /// reverb presets follow its reverb gain and brightness.
+    sound_physics: sound_physics_core::Config,
+    /// The reverb bus this buffer, one input per send, kept to be refilled
+    /// without allocating on the audio thread.
+    reverb_bus: Vec<[f32; sound_physics_core::SENDS]>,
+    /// The four reverbs, built for the output's rate on its first buffer.
+    reverbs: Option<Reverbs>,
 }
 #[cfg(feature = "audio")]
 type DeviceProbe = (Option<String>, Option<String>, Vec<String>);
@@ -385,6 +400,9 @@ impl Backend for MixerBackend {
                 owner: self.owner,
                 world: self.world,
                 started: None,
+                environment: None,
+                low_pass: 0.0,
+                send_low_pass: [0.0; sound_physics_core::SENDS],
             },
         );
         Some(id)
@@ -411,6 +429,22 @@ impl Backend for MixerBackend {
     }
     fn set_relative(&mut self, channel: ChannelId, relative: bool) {
         self.with(channel, |c| c.relative = relative);
+    }
+    /// Sound Physics Remastered's environment for the source. A sound takes none
+    /// when it starts, so a reused channel never keeps the last one's filters;
+    /// the filters' state is cleared with it.
+    fn set_environment(
+        &mut self,
+        channel: ChannelId,
+        environment: Option<sound_physics_core::Environment>,
+    ) {
+        self.with(channel, |c| {
+            c.environment = environment;
+            if environment.is_none() {
+                c.low_pass = 0.0;
+                c.send_low_pass = [0.0; sound_physics_core::SENDS];
+            }
+        });
     }
     /// `getCompleteBuffer` (cached, else decoded on the decoder thread) or
     /// `getStream` (decoded on a thread of its own), then attach and
@@ -538,10 +572,172 @@ fn distance_gain(linear: Option<f32>, distance: f32) -> f32 {
         Some(_) => 0.0,
     }
 }
+/// One pole of a low-pass whose high-frequency gain is `gain_hf`
+/// (`AL_LOWPASS_GAINHF`): `y[n] = y[n-1] + a (x[n] - y[n-1])` responds by
+/// `a / (2 - a)` at Nyquist, which `a` solves back to `2 g / (1 + g)`. A closed
+/// filter keeps a floor so its pass band does not fall silent.
+fn low_pass(state: &mut f32, x: f32, gain_hf: f32) -> f32 {
+    let a = (2.0 * gain_hf.max(0.0) / (1.0 + gain_hf.max(0.0))).clamp(0.002, 1.0);
+    *state += (x - *state) * a;
+    *state
+}
+/// Sound Physics Remastered's reverb, where the original fed an OpenAL EFX
+/// reverb from each sent auxiliary slot: a Schroeder reverb of four damped
+/// feedback comb filters in parallel into two allpasses, per send.
+struct Reverb {
+    combs: [Comb; 4],
+    allpasses: [Allpass; 2],
+    gain: f32,
+}
+/// A damped feedback comb filter (`EAXREVERB`'s decay and its HF ratio).
+struct Comb {
+    buffer: Vec<f32>,
+    index: usize,
+    feedback: f32,
+    damping: f32,
+    low: f32,
+}
+/// A Schroeder allpass (the diffusion).
+struct Allpass {
+    buffer: Vec<f32>,
+    index: usize,
+    gain: f32,
+}
+/// The four reverb units, one per send (`ReverbParams.getReverb0..3`).
+struct Reverbs {
+    units: [Reverb; sound_physics_core::SENDS],
+    rate: u32,
+}
+impl Comb {
+    fn new(length: usize) -> Self {
+        Self {
+            buffer: vec![0.0; length],
+            index: 0,
+            feedback: 0.0,
+            damping: 0.0,
+            low: 0.0,
+        }
+    }
+    fn process(&mut self, x: f32) -> f32 {
+        let delayed = self.buffer[self.index];
+        self.low = delayed * (1.0 - self.damping) + self.low * self.damping;
+        self.buffer[self.index] = x + self.low * self.feedback;
+        self.index += 1;
+        if self.index == self.buffer.len() {
+            self.index = 0;
+        }
+        // A comb's steady state is `1 / (1 - feedback)` of its input: its own
+        // output is scaled back, so a long decay is not simply louder.
+        delayed * (1.0 - self.feedback)
+    }
+}
+impl Allpass {
+    fn new(length: usize, gain: f32) -> Self {
+        Self {
+            buffer: vec![0.0; length],
+            index: 0,
+            gain,
+        }
+    }
+    fn process(&mut self, x: f32) -> f32 {
+        let delayed = self.buffer[self.index];
+        let out = delayed - self.gain * x;
+        self.buffer[self.index] = x + self.gain * delayed;
+        self.index += 1;
+        if self.index == self.buffer.len() {
+            self.index = 0;
+        }
+        out
+    }
+}
+impl Reverb {
+    /// A Freeverb's delay lengths (1120-ish samples of comb at 44.1 kHz), scaled
+    /// to `rate`; the `density` spreads the combs, as the original's does.
+    fn new(params: &sound_physics_core::ReverbParams, rate: u32) -> Self {
+        let scale = f64::from(rate) / 44_100.0;
+        let spread = 1.0 + f64::from(params.density) * 0.5;
+        let combs = std::array::from_fn(|i| {
+            let length = [1116.0, 1188.0, 1277.0, 1356.0][i] * scale * spread;
+            Comb::new(length.max(1.0) as usize)
+        });
+        let allpasses = std::array::from_fn(|i| {
+            Allpass::new(([556.0, 441.0][i] * scale).max(1.0) as usize, 0.5)
+        });
+        let mut reverb = Self {
+            combs,
+            allpasses,
+            gain: 0.0,
+        };
+        reverb.tune(params, rate);
+        reverb
+    }
+    /// The decay, HF damping and output gain of `params`.
+    fn tune(&mut self, params: &sound_physics_core::ReverbParams, rate: u32) {
+        let decay = f64::from(params.decay_time).max(0.01);
+        for comb in &mut self.combs {
+            let seconds = comb.buffer.len() as f64 / f64::from(rate);
+            comb.feedback = 10f64.powf(-3.0 * seconds / decay) as f32;
+            comb.damping = (1.0 - f64::from(params.decay_hf_ratio).clamp(0.05, 1.0)) as f32;
+        }
+        self.gain = params.gain * params.late_reverb_gain;
+    }
+    /// One sample of the wet signal.
+    fn process(&mut self, x: f32) -> f32 {
+        let mut wet = 0.0;
+        for comb in &mut self.combs {
+            wet += comb.process(x);
+        }
+        wet *= 0.25;
+        for allpass in &mut self.allpasses {
+            wet = allpass.process(wet);
+        }
+        wet * self.gain
+    }
+}
+impl Reverbs {
+    fn new(rate: u32, config: &sound_physics_core::Config) -> Self {
+        let units = std::array::from_fn(|slot| {
+            Reverb::new(&sound_physics_core::reverb_params(slot, config), rate)
+        });
+        Self { units, rate }
+    }
+    /// Follow the config, without reallocating.
+    fn update(&mut self, config: &sound_physics_core::Config) {
+        for (slot, unit) in self.units.iter_mut().enumerate() {
+            unit.tune(&sound_physics_core::reverb_params(slot, config), self.rate);
+        }
+    }
+    /// The wet signal of every send, added to the output.
+    fn process(
+        &mut self,
+        bus: &[[f32; sound_physics_core::SENDS]],
+        data: &mut [f32],
+        channels: usize,
+    ) {
+        for (frame, sends) in data.chunks_mut(channels).zip(bus) {
+            let mut wet = 0.0;
+            for (slot, unit) in self.units.iter_mut().enumerate() {
+                wet += unit.process(sends[slot]);
+            }
+            for sample in frame {
+                *sample += wet;
+            }
+        }
+    }
+}
 // Only the output stream mixes; a build without one (no `audio` feature) never does.
 #[cfg_attr(not(feature = "audio"), allow(dead_code))]
 fn mix(mixer: &mut Mixer, data: &mut [f32], channels: usize, rate: u32) {
     data.fill(0.0);
+    // Sound Physics: the four reverbs, built for the output's rate and rebuilt
+    // only if that rate changes.
+    if mixer
+        .reverbs
+        .as_ref()
+        .is_none_or(|reverbs| reverbs.rate != rate)
+    {
+        mixer.reverbs = Some(Reverbs::new(rate, &mixer.sound_physics));
+    }
     // The camera's forward and up vectors (`Camera.forwardVector`/`upVector`)
     // and OpenAL's right = forward x up.
     let basis = |yaw: f32, pitch: f32| {
@@ -637,6 +833,13 @@ fn mix(mixer: &mut Mixer, data: &mut [f32], channels: usize, rate: u32) {
         let step = f64::from(*source_rate) / f64::from(rate) * f64::from(c.pitch.max(0.0));
         voices.push((*id, [left, right, gain], step));
     }
+    // Sound Physics: the reverb bus, an input per send, filled as the sources mix.
+    let mut bus = std::mem::take(&mut mixer.reverb_bus);
+    bus.clear();
+    bus.resize(
+        data.len().div_ceil(channels.max(1)),
+        [0.0; sound_physics_core::SENDS],
+    );
     mixer.cameras = cameras;
     for (id, [left, right, gain], step) in voices {
         let Some(c) = mixer.channels.get_mut(&id) else {
@@ -645,7 +848,8 @@ fn mix(mixer: &mut Mixer, data: &mut [f32], channels: usize, rate: u32) {
         let Some((samples, _)) = c.samples.clone() else {
             continue;
         };
-        for frame in data.chunks_mut(channels) {
+        let environment = c.environment;
+        for (frame, bus) in data.chunks_mut(channels).zip(bus.iter_mut()) {
             let mut i = c.position as usize;
             if i + 1 >= samples.len() {
                 if c.looping && samples.len() > 1 {
@@ -657,7 +861,24 @@ fn mix(mixer: &mut Mixer, data: &mut [f32], channels: usize, rate: u32) {
                 }
             }
             let t = (c.position - i as f64) as f32;
-            let s = samples[i] * (1.0 - t) + samples[i + 1] * t;
+            let sample = samples[i] * (1.0 - t) + samples[i + 1] * t;
+            // Sound Physics: the direct path's gain and low-pass (the original's
+            // `AL_DIRECT_FILTER`), and the four sends that feed the reverbs.
+            let s = match environment {
+                Some(environment) => {
+                    for send in 0..sound_physics_core::SENDS {
+                        let (send_gain, cutoff) = (
+                            environment.sends[send].gain,
+                            environment.sends[send].cutoff,
+                        );
+                        bus[send] +=
+                            low_pass(&mut c.send_low_pass[send], sample, cutoff) * send_gain * gain;
+                    }
+                    low_pass(&mut c.low_pass, sample, environment.direct_cutoff)
+                        * environment.direct_gain
+                }
+                None => sample,
+            };
             if channels >= 2 {
                 frame[0] += s * left;
                 frame[1] += s * right;
@@ -667,6 +888,13 @@ fn mix(mixer: &mut Mixer, data: &mut [f32], channels: usize, rate: u32) {
             }
             c.position += step;
         }
+    }
+    mixer.reverb_bus = bus;
+    // Sound Physics: the four reverb tails, returned to the mix before the
+    // limiter as the original's aux sends were.
+    if let Some(reverbs) = mixer.reverbs.as_mut() {
+        reverbs.update(&mixer.sound_physics);
+        reverbs.process(&mixer.reverb_bus, data, channels);
     }
     // Limit the whole buffer together, preserving waveform and stereo balance
     // instead of flattening each overloaded sample; release over 200 ms
@@ -1065,6 +1293,25 @@ impl Audio {
                 m.listeners
                     .insert(self.backend.owner, (position, yaw, pitch));
             }
+        }
+    }
+    /// Sound Physics Remastered's config: the four reverb presets follow it
+    /// (`Audio::set_sound_physics`).
+    pub fn set_sound_physics(&mut self, config: sound_physics_core::Config) {
+        if let Ok(mut mixer) = self.backend.mixer.lock() {
+            mixer.sound_physics = config;
+        }
+    }
+    /// Sound Physics Remastered's environment for the sound on `id`'s channel:
+    /// what the host's world evaluation produced. Hurts nothing when the
+    /// instance has no channel, or has ended.
+    pub fn set_environment(
+        &mut self,
+        id: InstanceId,
+        environment: Option<sound_physics_core::Environment>,
+    ) {
+        if let Some(channel) = self.engine.channel(id) {
+            self.backend.set_environment(channel, environment);
         }
     }
     /// Splitscreen: another player's sounds on this output, heard from its camera too
@@ -1541,6 +1788,9 @@ mod tests {
             owner: 0,
             world: 0,
             started: None,
+            environment: None,
+            low_pass: 0.0,
+            send_low_pass: [0.0; sound_physics_core::SENDS],
         }
     }
 

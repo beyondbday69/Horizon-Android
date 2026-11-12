@@ -160,6 +160,10 @@ struct DynamicRuntimeState {
     barrel_roll_roll: f32,
     /// The one-time multiplayer warning has been shown.
     barrel_roll_warned: bool,
+    /// Sound Physics Remastered (Sonic Ether & henkelmax): the sounds whose
+    /// environment is worked out already, and its per-tick rate limit.
+    sound_physics_done: BTreeSet<u64>,
+    sound_physics_rate: sound_physics_core::RateLimiter,
 }
 
 static DYNAMIC_RUNTIME: OnceLock<Mutex<DynamicRuntimeState>> = OnceLock::new();
@@ -1279,6 +1283,18 @@ pub(super) fn native_settings(game: &mut Game<'_>, mod_id: &str, buttons: &mut V
         return;
     }
 
+    if m.features.contains("sound_physics") {
+        let enabled = setting_bool(game, mod_id, "enabled", true);
+        let reverb = setting_bool(game, mod_id, "reverb", true);
+        let occlusion = setting_u32(game, mod_id, "occlusion", 100);
+        let reverb_gain = setting_u32(game, mod_id, "reverb_gain", 100);
+        buttons.push(format!("Sound Physics: {}", on_off(enabled)));
+        buttons.push(format!("Reverb: {}", on_off(reverb)));
+        buttons.push(format!("Occlusion Strength: {occlusion}%"));
+        buttons.push(format!("Reverb Volume: {reverb_gain}%"));
+        return;
+    }
+
     if !m.custom_buttons.is_empty() {
         for (idx, lbl) in m.custom_buttons.iter().enumerate() {
             let key = format!("opt_{idx}");
@@ -1633,6 +1649,25 @@ pub(super) fn native_settings_click(game: &mut Game<'_>, mod_id: &str, button: u
         return;
     }
 
+    if features.contains("sound_physics") {
+        match button {
+            0 => {
+                toggle_setting_bool(game, mod_id, "enabled", true);
+            }
+            1 => {
+                toggle_setting_bool(game, mod_id, "reverb", true);
+            }
+            2 => {
+                cycle_u32(game, mod_id, "occlusion", &[50, 75, 100, 125, 150], 100);
+            }
+            3 => {
+                cycle_u32(game, mod_id, "reverb_gain", &[50, 75, 100, 150, 200], 100);
+            }
+            _ => {}
+        }
+        return;
+    }
+
     if !custom_buttons.is_empty() {
         let key = format!("opt_{button}");
         toggle_setting_bool(game, mod_id, &key, true);
@@ -1848,6 +1883,11 @@ pub(super) fn native_tick(game: &mut Game<'_>) {
             delay,
         );
     }
+
+    // Sound Physics Remastered: the world sounds that started since the last tick.
+    if let Ok(mut guard) = runtime().lock() {
+        update_sound_physics(game, &mut guard);
+    }
 }
 
 pub(super) fn native_camera_shake(game: &Game<'_>, partial: f32, shake: &mut NativeShake) {
@@ -2027,6 +2067,51 @@ fn update_camera_overhaul(game: &Game<'_>, elapsed: Duration) {
         (off.yaw * k) as f32,
         (off.roll * k) as f32,
     ];
+}
+
+// ============================================================================
+// Sound Physics Remastered (Sonic Ether & henkelmax, GPL-3.0; crates/sound-physics-core)
+// ============================================================================
+
+/// The enabled `sound_physics` mod's id, if the game is playing in the window.
+fn sound_physics_mod_id(game: &Game<'_>, state: &DynamicRuntimeState) -> Option<String> {
+    (game.native_window() && game.native_playing())
+        .then(|| {
+            state
+                .mods
+                .values()
+                .find(|m| game.native_on(&m.id) && m.features.contains("sound_physics"))
+                .map(|m| m.id.clone())
+        })
+        .flatten()
+}
+
+/// Sound Physics Remastered's driver: every world sound that started since the
+/// last tick is evaluated against the blocks between it and the listener, and
+/// the result handed to the mixer — its direct gain and low-pass, and the four
+/// reverb sends.
+fn update_sound_physics(game: &mut Game<'_>, state: &mut DynamicRuntimeState) {
+    let Some(mod_id) = sound_physics_mod_id(game, state) else {
+        return;
+    };
+    if !setting_bool(game, &mod_id, "enabled", true) {
+        return;
+    }
+    let reverb = setting_bool(game, &mod_id, "reverb", true);
+    let config = sound_physics_core::Config {
+        // The mod's Block Absorption and Reverb Gain, behind this port's two sliders.
+        block_absorption: f64::from(setting_u32(game, &mod_id, "occlusion", 100)) / 100.0,
+        reverb_gain: f64::from(setting_u32(game, &mod_id, "reverb_gain", 100)) / 100.0,
+        ..sound_physics_core::Config::default()
+    };
+    game.audio.set_sound_physics(config.clone());
+    super::sound_physics::tick(
+        game,
+        &config,
+        reverb,
+        &mut state.sound_physics_done,
+        &mut state.sound_physics_rate,
+    );
 }
 
 // ============================================================================

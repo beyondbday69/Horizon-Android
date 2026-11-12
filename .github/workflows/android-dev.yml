@@ -176,6 +176,8 @@ jobs:
           shutil.copyfile('camera_overhaul.hnmod', out / 'camera_overhaul.hnmod')
           # The importable Do a Barrel Roll bundle (Options > Mods > Import).
           shutil.copyfile('barrel_roll.hnmod', out / 'barrel_roll.hnmod')
+          # The importable Sound Physics Remastered bundle (Options > Mods > Import).
+          shutil.copyfile('sound_physics.hnmod', out / 'sound_physics.hnmod')
           (out / 'BUILD.json').write_text(json.dumps({'commit': sha, 'abi': abi, 'profile': 'release',
               'package': 'dev.horizon.android.dev', 'experimental': True,
               'run': f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'}, indent=2) + '\n')

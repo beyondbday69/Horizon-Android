@@ -9,7 +9,9 @@ Ported: the per-sound environment evaluation — how much the blocks between the
 source and the listener absorb (occlusion, nine probe paths), the direct gain and
 low-pass cutoff, the four reverb sends with their cutoffs, the room's shared
 airspace and the position the sound is heard from, the four reverb presets, the
-sound rate limit, and the config with the original's defaults.
+sound rate limit, the config with the original's defaults, and the block material
+tables ([`blocks`]: occlusion and reflectivity by block name, as the host has no
+sound types).
 
 Not ported: the OpenAL EFX calls (the host turns [`ReverbParams`] into its own
 reverb), the per-block config files (the host supplies [`SoundWorld`]), the debug

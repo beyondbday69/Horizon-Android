@@ -644,6 +644,13 @@ pub fn infer_features_from_id_and_signals(
     {
         features.insert("barrel_roll".to_owned());
     }
+    if matches!(id_low.as_str(), "sound_physics" | "soundphysics" | "soundphysicsremastered")
+        || combined.contains("soundphysics")
+        || combined.contains("sound_physics")
+        || combined.contains("sound physics")
+    {
+        features.insert("sound_physics".to_owned());
+    }
     if features.is_empty() {
         features.insert("hud_overlay".to_owned());
         features.insert("tooltip".to_owned());

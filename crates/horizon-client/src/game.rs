@@ -287,6 +287,7 @@ mod shield;
 mod shoulders;
 mod sign_edit;
 mod sniffers;
+mod sound_physics;
 mod spawner;
 mod spear;
 mod spectator;

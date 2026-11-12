@@ -740,6 +740,16 @@ pub trait Backend {
     fn set_looping(&mut self, channel: ChannelId, looping: bool);
     fn set_position(&mut self, channel: ChannelId, position: [f64; 3]);
     fn set_relative(&mut self, channel: ChannelId, relative: bool);
+    /// Sound Physics Remastered's environment for the source (its
+    /// `AL_DIRECT_FILTER` and `AL_AUXILIARY_SEND_FILTER`): the gain and low-pass
+    /// of the direct path and the four reverb sends. A backend without the
+    /// feature, and every sound until the host evaluates it, takes none.
+    fn set_environment(
+        &mut self,
+        _channel: ChannelId,
+        _environment: Option<sound_physics_core::Environment>,
+    ) {
+    }
     /// Attach the sound's buffer or stream (when loaded) and play it.
     fn start(&mut self, channel: ChannelId, sound: &Sound, looping: bool);
     fn stop(&mut self, channel: ChannelId);
@@ -1155,6 +1165,9 @@ impl SoundEngine {
         backend.set_looping(channel, looping && !streaming);
         backend.set_position(channel, position);
         backend.set_relative(channel, relative);
+        // A reused channel must not keep the last sound's environment until the
+        // host evaluates this one.
+        backend.set_environment(channel, None);
         backend.start(channel, &sound, looping);
         if tickable {
             self.ticking.push(id);
