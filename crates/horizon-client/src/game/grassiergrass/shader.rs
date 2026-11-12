@@ -1,5 +1,37 @@
 //! The blade shader, embedded because a bundle carries only `.rs` and `.toml` sources.
 
+/// The depth test, bound to a depth texture. Used when the world depth cannot be attached.
+const DEPTH_TEST_SAMPLED: &str = r#"
+@group(0) @binding(1) var world_depth: texture_depth_2d;
+
+// The world's depth is already 0..1; a blade hides once something is in front of it.
+fn occluded(clip_xy: vec2<f32>, frag_depth: f32) -> bool {
+    let dims = vec2<f32>(textureDimensions(world_depth));
+    if clip_xy.x < 0.0 || clip_xy.y < 0.0 || clip_xy.x >= dims.x || clip_xy.y >= dims.y {
+        return false;
+    }
+    return textureLoad(world_depth, vec2<i32>(clip_xy), 0) < frag_depth - 0.00002;
+}
+"#;
+
+/// The depth test used when the world depth is attached to the pass: the fixed-function
+/// test has already hidden what should be hidden.
+const DEPTH_TEST_ATTACHED: &str = r#"
+fn occluded(clip_xy: vec2<f32>, frag_depth: f32) -> bool {
+    return false;
+}
+"#;
+
+/// The blade shader for a pass whose depth texture is bound instead of attached.
+pub fn blades_wgsl_sampled() -> String {
+    BLADES_WGSL.replace("//__DEPTH_TEST__", DEPTH_TEST_SAMPLED)
+}
+
+/// The blade shader for a pass that attaches the world depth.
+pub fn blades_wgsl_attached() -> String {
+    BLADES_WGSL.replace("//__DEPTH_TEST__", DEPTH_TEST_ATTACHED)
+}
+
 pub const BLADES_WGSL: &str = r#"
 // Grassier Grass for Horizon: blade wind shader.
 // Ported from Grassier Grass 1.4.5 grass_blades.vsh/.fsh (steps 1-9); the entity trail, snow,
@@ -17,6 +49,8 @@ struct Globals {
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
+
+//__DEPTH_TEST__
 
 struct VertexIn {
     @location(0) pos: vec3<f32>,
@@ -306,7 +340,10 @@ fn vs_blade(input: VertexIn) -> VertexOut {
 }
 
 @fragment
-fn fs_blade(input: FragmentIn) -> @location(0) vec4<f32> {
+fn fs_blade(input: FragmentIn, @builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
+    if occluded(frag.xy, frag.z) {
+        discard;
+    }
     let shaped = pow(clamp(input.height, 0.0, 1.0), 1.9);
     let gradient = mix(0.8 * 0.75, 1.0, shaped);
     let wave = mix(0.85, 1.0, clamp(input.wave, 0.0, 1.0));
@@ -314,3 +351,5 @@ fn fs_blade(input: FragmentIn) -> @location(0) vec4<f32> {
     return vec4<f32>(color, 1.0);
 }
 "#;
+
+

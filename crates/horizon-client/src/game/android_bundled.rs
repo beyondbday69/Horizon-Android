@@ -1299,6 +1299,11 @@ pub(super) fn native_settings(game: &mut Game<'_>, mod_id: &str, buttons: &mut V
         return;
     }
 
+    if m.features.contains("grassiergrass") {
+        buttons.extend(super::grassiergrass::settings_labels(game));
+        return;
+    }
+
     if m.features.contains("sound_physics") {
         let enabled = setting_bool(game, mod_id, "enabled", true);
         let reverb = setting_bool(game, mod_id, "reverb", true);
@@ -1354,6 +1359,11 @@ pub(super) fn native_settings_click(game: &mut Game<'_>, mod_id: &str, button: u
 
     if features.contains("hold_my_items") {
         super::hold_my_items::hmi_settings_click(game, button);
+        return;
+    }
+
+    if features.contains("grassiergrass") {
+        super::grassiergrass::settings_click(game, button);
         return;
     }
 

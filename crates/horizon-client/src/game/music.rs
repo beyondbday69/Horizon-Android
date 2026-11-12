@@ -232,6 +232,20 @@ impl Game<'_> {
                     .as_str()
             })
     }
+    /// The biome id of the quart cell holding `pos`: [`Self::biome_at`] for callers that
+    /// need the id (the colour tables index by it) rather than the name.
+    pub(crate) fn biome_id_at(&self, p: [f64; 3]) -> u16 {
+        let (x, y, z) = (
+            p[0].floor() as i32,
+            p[1].floor() as i32,
+            p[2].floor() as i32,
+        );
+        self.world
+            .chunks
+            .get(&(x >> 4, z >> 4))
+            .map_or(u16::from(0), |c| c.biome(x, y, z))
+    }
+
     /// `isEyeInFluid(WATER)`: the eye inside the water of its block column.
     pub(super) fn eye_in_water(&self, x: f64, eye_y: f64, z: f64) -> bool {
         let (bx, by, bz) = (x.floor() as i32, eye_y.floor() as i32, z.floor() as i32);

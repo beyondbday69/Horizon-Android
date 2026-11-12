@@ -58,6 +58,9 @@ pub struct Config {
     pub blade_height: f32,
     /// Width multiplier (default 0.95).
     pub blade_width: f32,
+    /// Per-channel multiplier on the baked blade colour, 1.0 = the original's greens.
+    /// The caller sets it to the biome's grass tint so blades match the ground they grow on.
+    pub tint: [f32; 3],
 }
 
 impl Default for Config {
@@ -67,6 +70,7 @@ impl Default for Config {
             blades_per_block: 24,
             blade_height: 0.3,
             blade_width: 0.95,
+            tint: [1.0, 1.0, 1.0],
         }
     }
 }
@@ -94,6 +98,18 @@ impl Mesh {
 /// to read the world. `anchor.y + 4` down to `anchor.y - 16` is scanned, so a camera far above
 /// the ground finds nothing.
 pub fn build(anchor: [i32; 3], config: &Config, mut block: impl FnMut([i32; 3]) -> Block) -> Mesh {
+    build_tinted(anchor, config, &mut block, |_| config.tint)
+}
+
+/// [`build`] with a tint per block column, so blades take the grass colour of the biome
+/// they grow in. `tint` is called once per column that grew blades, with the column's base
+/// position, and multiplies [`Config::tint`].
+pub fn build_tinted(
+    anchor: [i32; 3],
+    config: &Config,
+    mut block: impl FnMut([i32; 3]) -> Block,
+    mut tint: impl FnMut([i32; 3]) -> [f32; 3],
+) -> Mesh {
     let mut mesh = Mesh::empty(anchor);
     let r2 = config.radius * config.radius;
     let top = anchor[1] + 4;
@@ -111,7 +127,7 @@ pub fn build(anchor: [i32; 3], config: &Config, mut block: impl FnMut([i32; 3]) 
             for y in (bottom..=top).rev() {
                 let here = block([x, y, z]);
                 if here == Block::Grass && above == Block::Air {
-                    emit_block(&mut mesh, anchor, config, [x, y + 1, z]);
+                    emit_block(&mut mesh, anchor, config, [x, y + 1, z], tint([x, y, z]));
                 }
                 above = here;
             }
@@ -120,7 +136,13 @@ pub fn build(anchor: [i32; 3], config: &Config, mut block: impl FnMut([i32; 3]) 
     mesh
 }
 
-fn emit_block(mesh: &mut Mesh, anchor: [i32; 3], config: &Config, base: [i32; 3]) {
+fn emit_block(
+    mesh: &mut Mesh,
+    anchor: [i32; 3],
+    config: &Config,
+    base: [i32; 3],
+    tint: [f32; 3],
+) {
     let seed = hash_pos(base);
     let height = config.blade_height * TALL_HEIGHT_MULTIPLIER;
     let [origin_x, origin_y, origin_z] = base;
@@ -142,7 +164,10 @@ fn emit_block(mesh: &mut Mesh, anchor: [i32; 3], config: &Config, base: [i32; 3]
         let normal_x = noise_x * 2.0 - 1.0;
         let normal_z = noise_z * 2.0 - 1.0;
 
-        let tint = blade_tint(seed, blade as u64);
+        let tint = {
+            let baked = blade_tint(seed, blade as u64);
+            [0, 1, 2].map(|i| (f32::from(baked[i]) * tint[i]).clamp(0.0, 255.0) as u8)
+        };
 
         for section in 0..BLADE_SEGMENTS {
             // The original's two-quad layout splits at 2/3, not halfway (BLADE_SPLIT).
@@ -265,6 +290,50 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_column_tint_reaches_only_that_column() {
+        let config = Config::default();
+        // The left half of the disk is pushed to blue, the right half untouched. The tint
+        // multiplies the baked greens, so blue means the red channel went to zero.
+        let tint = |column: [i32; 3]| {
+            if column[0] < -5 {
+                [0.0, 1.0, 1.0]
+            } else {
+                [1.0, 1.0, 1.0]
+            }
+        };
+        let plain = build([0, 64, 0], &config, flat_world);
+        let mesh = build_tinted([0, 64, 0], &config, flat_world, tint);
+        assert_eq!(plain.vertices.len(), mesh.vertices.len(), "same blades");
+        // Every vertex whose column went red-less is on the left of the anchor.
+        let redless: Vec<[f32; 3]> = mesh
+            .vertices
+            .iter()
+            .zip(&plain.vertices)
+            .filter(|(t, p)| t.color[0] < p.color[0])
+            .map(|(t, _)| t.pos)
+            .collect();
+        assert!(!redless.is_empty(), "the tinted half emitted blades");
+        // The cut is at x = -5. A blade belongs to the column it grows from and is at most
+        // one block wide, so no tinted blade reaches past -4.
+        let worst = redless.iter().map(|p| p[0]).fold(f32::MIN, f32::max);
+        assert!(
+            worst < -4.0,
+            "only columns left of the cut were tinted, saw x up to {worst}"
+        );
+    }
+
+    #[test]
+    fn the_default_tint_leaves_the_baked_greens_alone() {
+        let (plain, _) = (build([0, 64, 0], &Config::default(), flat_world), ());
+        let tinted = build_tinted([0, 64, 0], &Config::default(), flat_world, |_| [1.0; 3]);
+        assert_eq!(plain.vertices.len(), tinted.vertices.len());
+        assert_eq!(
+            plain.vertices.iter().map(|v| v.color).collect::<Vec<_>>(),
+            tinted.vertices.iter().map(|v| v.color).collect::<Vec<_>>()
+        );
+    }
 
     /// A flat grass plane at y = 63, with stone below and air above.
     fn flat_world([x, y, z]: [i32; 3]) -> Block {
