@@ -33,7 +33,7 @@ concurrency:
 jobs:
   build:
     # Never expose a signing secret to pull requests or arbitrary dispatch refs.
-    if: github.ref == 'refs/heads/android' || github.ref == 'refs/heads/controls-overhaul-zip' || github.ref == 'refs/heads/camera-overhaul' || github.ref == 'refs/heads/barrel-roll' || github.ref == 'refs/heads/sound-physics'
+    if: github.ref == 'refs/heads/android' || github.ref == 'refs/heads/controls-overhaul-zip' || github.ref == 'refs/heads/camera-overhaul' || github.ref == 'refs/heads/barrel-roll' || github.ref == 'refs/heads/sound-physics' || github.ref == 'refs/heads/hmi-animations'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     strategy:
