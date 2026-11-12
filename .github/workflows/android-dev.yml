@@ -181,6 +181,8 @@ jobs:
           shutil.copyfile('sound_physics.hnmod', out / 'sound_physics.hnmod')
           # The importable Visible Hands bundle (Options > Mods > Import).
           shutil.copyfile('visible_hands.hnmod', out / 'visible_hands.hnmod')
+          # The importable Hold My Items bundle (Options > Mods > Import).
+          shutil.copyfile('hold_my_items.hnmod', out / 'hold_my_items.hnmod')
           (out / 'BUILD.json').write_text(json.dumps({'commit': sha, 'abi': abi, 'profile': 'release',
               'package': 'dev.horizon.android.dev', 'experimental': True,
               'run': f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'}, indent=2) + '\n')

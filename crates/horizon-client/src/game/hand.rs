@@ -186,6 +186,10 @@ impl Game<'_> {
     }
     /// `LivingEntity.swing` with `getModifiedSwingDuration`.
     pub(super) fn swing_hand(&mut self, hand: Hand, animation: SwingAnimation) {
+        // Hold My Items tracks each hand's swing itself, at its own per-item speed.
+        if super::android_bundled::hold_my_items_active(self) {
+            super::hold_my_items::hmi_swing_hand(self, hand);
+        }
         let effects = &self.potions.effects;
         let dig_speed = effects
             .amplifier("haste")

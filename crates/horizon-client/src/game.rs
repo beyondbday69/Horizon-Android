@@ -139,6 +139,7 @@ mod golems;
 mod growth;
 mod hand;
 mod headless;
+mod hold_my_items;
 mod ime;
 mod initial_spawn;
 mod integrated;

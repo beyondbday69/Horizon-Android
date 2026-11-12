@@ -402,6 +402,11 @@ pub(super) fn parse_dynamic_hnmod(path: &std::path::Path) -> Option<DynamicHnmod
     features.extend(inferred);
 
     // Populate authentic keybinds per mod type
+    if features.contains("hold_my_items") {
+        super::hold_my_items::hmi_settings_click(game, button);
+        return;
+    }
+
     if features.contains("wrench") {
         // Wrench uses right-click on blocks, no keybind needed (just like official wrench)
     } else if features.contains("veinminer") {
@@ -926,6 +931,10 @@ fn enchantment_description(ench_id: &str) -> Option<&'static str> {
 
 pub(super) fn native_key(game: &mut Game<'_>, key: &str, pressed: bool) {
     let _ = (&game, &key, &pressed);
+    // Hold My Items' inspect keybind.
+    if hold_my_items_active(game) {
+        super::hold_my_items::hmi_key(game, key, pressed);
+    }
     #[cfg(target_os = "android")]
     {
         zoom_key::run(&mut *game, key, pressed);
@@ -1280,6 +1289,11 @@ pub(super) fn native_settings(game: &mut Game<'_>, mod_id: &str, buttons: &mut V
         buttons.push(format!("Banking: {banking}%"));
         buttons.push(format!("Smoothing: {smoothing}%"));
         buttons.push(format!("Invert Y: {}", on_off(invert)));
+        return;
+    }
+
+    if m.features.contains("hold_my_items") {
+        buttons.extend(super::hold_my_items::hmi_settings(game));
         return;
     }
 
@@ -1722,6 +1736,10 @@ pub(super) fn native_frame(game: &mut Game<'_>, elapsed: Duration) {
     }
     // Camera Overhaul's per-frame update, before the frame is rendered.
     update_camera_overhaul(game, elapsed);
+    // Hold My Items' spring-damper physics, sounds and map pre-cache.
+    if hold_my_items_active(game) {
+        super::hold_my_items::hmi_frame(game, elapsed);
+    }
 }
 
 pub(super) fn native_panel_event(game: &mut Game<'_>, mod_id: &str, event: &NativePanelEvent) {
@@ -1734,6 +1752,10 @@ pub(super) fn native_panel_event(game: &mut Game<'_>, mod_id: &str, event: &Nati
 
 pub(super) fn native_command(game: &mut Game<'_>, command: &str, ran: &mut bool) {
     let _ = (&game, &command, &ran);
+    // Hold My Items' `/hmi` client command.
+    if hold_my_items_active(game) {
+        super::hold_my_items::hmi_command(game, command, ran);
+    }
     #[cfg(target_os = "android")]
     {
         smartf3_command::run(&mut *game, command, &mut *ran);
@@ -1794,6 +1816,10 @@ pub(super) fn native_command(game: &mut Game<'_>, command: &str, ran: &mut bool)
 
 pub(super) fn native_tick(game: &mut Game<'_>) {
     ensure_dynamic_mods_loaded(game, false);
+    // Hold My Items' 20 TPS per-hand swing progress.
+    if hold_my_items_active(game) {
+        super::hold_my_items::hmi_tick(game);
+    }
     let mut play_thunder: Option<([f64; 3], f32, f32, i32)> = None;
     let mut want_fullbright: Option<f32> = None;
     let mut want_toggle_sprint = false;
@@ -1912,6 +1938,11 @@ pub(super) fn native_tick(game: &mut Game<'_>) {
 }
 
 pub(super) fn native_camera_shake(game: &Game<'_>, partial: f32, shake: &mut NativeShake) {
+    // Hold My Items' eating, drinking, walking and landing feedback. Checked before
+    // the lock below, because the adapter reads settings through `native_on`.
+    if hold_my_items_active(game) {
+        super::hold_my_items::hmi_shake(game, shake);
+    }
     let Ok(guard) = runtime().lock() else {
         return;
     };
@@ -2139,6 +2170,19 @@ fn update_sound_physics(game: &mut Game<'_>, state: &mut DynamicRuntimeState) {
 // Visible Hands (our own): the player's arm under a held item
 // ============================================================================
 
+/// Whether a loaded mod offers Hold My Items' first-person hand animation, and is on.
+/// The hook points call this *before* they take `runtime()` so the adapter never
+/// re-enters that lock through `native_on`.
+pub(super) fn hold_my_items_active(game: &Game<'_>) -> bool {
+    let Ok(guard) = runtime().lock() else {
+        return false;
+    };
+    guard
+        .mods
+        .values()
+        .any(|m| game.native_on(&m.id) && m.features.contains("hold_my_items"))
+}
+
 /// Visible Hands' settings: whether the arm shows under a held item, and whether
 /// it moves with our own animation. `(false, false)` when the mod is off.
 pub(super) fn visible_hands_settings(game: &Game<'_>) -> (bool, bool) {
@@ -2293,6 +2337,10 @@ pub(super) fn native_hud(
     batch: &mut horizon_client::hud::HudBatch,
     corners: &mut horizon_client::extras_hud::Corners,
 ) {
+    // Hold My Items' debug overlay, when its script asks for one.
+    if hold_my_items_active(game) {
+        super::hold_my_items::hmi_hud(game, batch);
+    }
     ensure_dynamic_mods_loaded(game, false);
     use horizon_client::extras::Corner;
 
@@ -3208,6 +3256,10 @@ pub(super) fn native_visuals(
     rims: &mut Vec<NativeBlockRim>,
     lights: &mut Vec<NativeColoredLight>,
 ) {
+    // Hold My Items' held-item light. Checked before the lock below.
+    if hold_my_items_active(game) {
+        super::hold_my_items::hmi_visuals(game, lights);
+    }
     let Ok(guard) = runtime().lock() else {
         return;
     };

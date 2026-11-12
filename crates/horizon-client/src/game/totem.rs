@@ -170,6 +170,11 @@ impl Game<'_> {
         if self.ui.hide_gui {
             return;
         }
+        // Hold My Items draws its own first-person arms, held items, 3D blocks,
+        // maps and particles.
+        if super::android_bundled::hold_my_items_active(self) {
+            super::hold_my_items::hmi_render_hands(self, partial, out);
+        }
         let (Some(stack), Some(pose)) = (
             self.item_activation.active(),
             self.item_activation.pose(partial, aspect),

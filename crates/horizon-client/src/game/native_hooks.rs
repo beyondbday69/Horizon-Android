@@ -2335,6 +2335,17 @@ impl Game<'_> {
     /// has keeps that command's behaviour. API 35.
     pub(super) fn native_commands(&mut self, commands: &mut Vec<&'static str>) {
         mod_api::dispatch_commands(self, mod_api::mods(), commands);
+        // Hold My Items answers to `/hmi` and `/holdmyitems`.
+        if super::android_bundled::hold_my_items_active(self) {
+            for command in [
+                hold_my_items_core::COMMAND_HMI,
+                hold_my_items_core::COMMAND_HOLDMYITEMS,
+            ] {
+                if !commands.contains(&command) {
+                    commands.push(command);
+                }
+            }
+        }
     }
 
     /// Player FOV scale, after vanilla effects and before zoom and easing.

@@ -278,6 +278,10 @@ pub fn canonical_horizon_mod_meta(mod_id: &str) -> Option<(&'static str, &'stati
             "Visible Hands",
             "Shows your own arm and hand holding the item in first person, so a held item is held instead of left floating.",
         )),
+        "hold_my_items" | "holdmyitems" | "hmi" => Some((
+            "Hold My Items",
+            "First-person arms and items that move like an extension of your body: swings, walking, sneaking, eating, climbing, and per-item poses.",
+        )),
         "auto_totem" | "autototem" => Some((
             "Auto Totem Helper",
             "Displays remaining Totems of Undying on the HUD and warns when off-hand totem is depleted.",
@@ -661,6 +665,13 @@ pub fn infer_features_from_id_and_signals(
         || combined.contains("visible hands")
     {
         features.insert("visible_hands".to_owned());
+    }
+    if matches!(id_low.as_str(), "hold_my_items" | "holdmyitems" | "hmi")
+        || combined.contains("holdmyitems")
+        || combined.contains("hold_my_items")
+        || combined.contains("hold my items")
+    {
+        features.insert("hold_my_items".to_owned());
     }
     if features.is_empty() {
         features.insert("hud_overlay".to_owned());
