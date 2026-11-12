@@ -238,6 +238,137 @@ pub fn player_arm_pose(left: bool, inverse_height: f32, attack: f32) -> glam::Ma
         * Mat4::from_translation(Vec3::new(f * 5.6, 0.0, 0.0))
 }
 
+/// Visible Hands (our own): what a hand is holding, which decides how it grips.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum HandItem {
+    /// A tool: pickaxe, axe, shovel, hoe, sword, spear, shears, rod.
+    Tool,
+    /// Something to eat or drink.
+    Food,
+    /// A torch or a lantern: kept upright, as the flame would be.
+    Light,
+    /// A bow or a crossbow.
+    Bow,
+    /// Anything else, a block included.
+    #[default]
+    Other,
+}
+
+/// The class of the item worn as `id` (`minecraft:diamond_pickaxe`) by name:
+/// tools and food have no component to ask, and a block's own item is common
+/// enough that the rest share one grip.
+pub fn hand_item(id: &str) -> HandItem {
+    let name = id.rsplit_once(':').map_or(id, |(_, path)| path);
+    let tool = name.ends_with("_pickaxe")
+        || name.ends_with("_axe")
+        || name.ends_with("_shovel")
+        || name.ends_with("_hoe")
+        || name.ends_with("_sword")
+        || name.ends_with("_spear")
+        || name.ends_with("on_a_stick")
+        || matches!(
+            name,
+            "shears" | "fishing_rod" | "trident" | "mace" | "brush" | "flint_and_steel"
+        );
+    if tool {
+        return HandItem::Tool;
+    }
+    if matches!(name, "bow" | "crossbow") {
+        return HandItem::Bow;
+    }
+    if name.contains("torch")
+        || name.contains("lantern")
+        || name.contains("candle")
+        || matches!(name, "end_rod" | "glowstone" | "shroomlight" | "campfire" | "jack_o_lantern")
+    {
+        return HandItem::Light;
+    }
+    // Checked after the tools, so a fishing rod's "fish" and a carrot on a stick
+    // stay tools.
+    let food = name.ends_with("_stew")
+        || name.ends_with("_soup")
+        || matches!(name, "milk_bucket" | "honey_bottle" | "potion" | "cake")
+        || [
+            "apple", "bread", "cookie", "beef", "porkchop", "chicken", "mutton", "rabbit",
+            "cod", "salmon", "potato", "carrot", "beetroot", "melon_slice", "pumpkin_pie",
+            "sweet_berries", "glow_berries", "chorus_fruit", "dried_kelp", "kelp",
+            "spider_eye", "rotten_flesh", "mushroom", "berry",
+        ]
+        .iter()
+        .any(|food| name.contains(*food));
+    if food {
+        return HandItem::Food;
+    }
+    HandItem::Other
+}
+
+/// Visible Hands (our own): the pose of a hand holding something — the grip,
+/// the swing's own impulse, and a slow breath.
+///
+/// The rig is rigid about the hand's spot in view space and is applied to the
+/// arm and to the item together, so however it moves, the two never come apart.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct HandAnimation {
+    /// What is held.
+    pub item: HandItem,
+    /// The swing's progress (`0` at rest), as the vanilla poses take it.
+    pub swing: f32,
+    /// The game time in ticks, for the breath.
+    pub time: f32,
+    /// Off: the plain arm, with none of our own animation.
+    pub animated: bool,
+}
+
+impl HandAnimation {
+    /// The transform both the arm and the item are posed through.
+    pub fn rig(&self, left: bool, inverse_height: f32) -> glam::Mat4 {
+        use glam::{Mat4, Vec3};
+        let invert = if left { -1.0 } else { 1.0 };
+        let degrees = |d: f32| d.to_radians();
+        // The item's own spot in `item_pose`, which is where the hand's end is.
+        let pivot = Vec3::new(invert * 0.56, -0.52 - inverse_height * 0.6, -0.72);
+        let mut grip = match self.item {
+            // Angled so the head of the tool leads the hand.
+            HandItem::Tool => {
+                Mat4::from_rotation_x(degrees(-7.0))
+                    * Mat4::from_rotation_z(degrees(invert * 5.0))
+                    * Mat4::from_translation(Vec3::new(0.0, 0.02, 0.0))
+            }
+            // Turned part-way to the mouth, ready to be lifted.
+            HandItem::Food => {
+                Mat4::from_rotation_x(degrees(-16.0))
+                    * Mat4::from_rotation_y(degrees(invert * -6.0))
+            }
+            // Held against the lean of the grip, so the flame stays upright.
+            HandItem::Light => {
+                Mat4::from_rotation_x(degrees(9.0))
+                    * Mat4::from_rotation_z(degrees(invert * -4.0))
+            }
+            HandItem::Bow => {
+                Mat4::from_rotation_x(degrees(5.0))
+                    * Mat4::from_translation(Vec3::new(0.0, 0.03, 0.0))
+            }
+            HandItem::Other => {
+                Mat4::from_rotation_x(degrees(-4.0))
+                    * Mat4::from_translation(Vec3::new(0.0, 0.02, 0.0))
+            }
+        };
+        if self.animated {
+            // The swing's own impulse: a push and a turn of the whole hand, on
+            // top of the vanilla pose's motion.
+            let swing = (self.swing * std::f32::consts::PI).sin().max(0.0);
+            grip *= Mat4::from_translation(Vec3::new(0.0, 0.0, -0.06 * swing))
+                * Mat4::from_rotation_x(degrees(-7.0 * swing))
+                * Mat4::from_rotation_z(degrees(invert * 5.0 * swing));
+            // A breath, so a still hand is not dead still (a period of ~4 s).
+            let breath = (self.time * 0.08).sin();
+            grip *= Mat4::from_translation(Vec3::new(0.0, breath * 0.006, 0.0))
+                * Mat4::from_rotation_z(degrees(invert * breath * 0.8));
+        }
+        Mat4::from_translation(pivot) * grip * Mat4::from_translation(-pivot)
+    }
+}
+
 /// `renderTwoHandedMap` up to its arms: the swing, the tilt from the view
 /// pitch (`calculateMapTilt`) and the turn towards the player.
 pub fn two_handed_map_base(pitch: f32, inverse_height: f32, attack: f32) -> glam::Mat4 {

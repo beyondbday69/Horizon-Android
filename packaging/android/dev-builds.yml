@@ -3,7 +3,7 @@ run-name: Android dev · ${{ github.sha }}
 
 on:
   push:
-    branches: [android, controls-overhaul-zip, camera-overhaul, barrel-roll]
+    branches: [android, controls-overhaul-zip, camera-overhaul, barrel-roll, sound-physics]
     paths:
       - 'crates/**'
       - 'Cargo.toml'
@@ -33,7 +33,7 @@ concurrency:
 jobs:
   build:
     # Never expose a signing secret to pull requests or arbitrary dispatch refs.
-    if: github.ref == 'refs/heads/android' || github.ref == 'refs/heads/controls-overhaul-zip' || github.ref == 'refs/heads/camera-overhaul' || github.ref == 'refs/heads/barrel-roll'
+    if: github.ref == 'refs/heads/android' || github.ref == 'refs/heads/controls-overhaul-zip' || github.ref == 'refs/heads/camera-overhaul' || github.ref == 'refs/heads/barrel-roll' || github.ref == 'refs/heads/sound-physics'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     strategy:
@@ -133,10 +133,11 @@ jobs:
           key: android-dev-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'packaging/android/build.gradle') }}-${{ github.sha }}
           restore-keys: |
             android-dev-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'packaging/android/build.gradle') }}-
-      - name: Test the bundled Camera Overhaul and Barrel Roll crates
+      - name: Test the bundled mod crates
         run: |
           cargo test -p camera-overhaul-core
           cargo test -p barrel-roll-core
+          cargo test -p sound-physics-core
       - name: Check public source and packaging boundaries
         run: |
           python3 tools/check_public_tree.py
@@ -175,6 +176,10 @@ jobs:
           shutil.copyfile('camera_overhaul.hnmod', out / 'camera_overhaul.hnmod')
           # The importable Do a Barrel Roll bundle (Options > Mods > Import).
           shutil.copyfile('barrel_roll.hnmod', out / 'barrel_roll.hnmod')
+          # The importable Sound Physics Remastered bundle (Options > Mods > Import).
+          shutil.copyfile('sound_physics.hnmod', out / 'sound_physics.hnmod')
+          # The importable Visible Hands bundle (Options > Mods > Import).
+          shutil.copyfile('visible_hands.hnmod', out / 'visible_hands.hnmod')
           (out / 'BUILD.json').write_text(json.dumps({'commit': sha, 'abi': abi, 'profile': 'release',
               'package': 'dev.horizon.android.dev', 'experimental': True,
               'run': f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'}, indent=2) + '\n')

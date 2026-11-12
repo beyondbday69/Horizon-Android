@@ -102,3 +102,15 @@ the orientation, input, banking, smoothing and camera roll are ported; thrusting
 without fireworks) and every server-side or sync feature are left out. Because it is linked into
 the game, the APK that includes it is a combined work under GPL-3.0; builds that leave this crate
 out are unaffected. Horizon is not affiliated with enjarai or Jorbon.
+
+## Sound Physics Remastered
+
+`crates/sound-physics-core` is a Rust port of the occlusion, absorption and
+reverberation model of
+[Sound Physics Remastered](https://github.com/henkelmax/sound-physics-remastered) by Sonic Ether
+and henkelmax, which is based on Sound Physics by Sonic Ether. Licensed under GPL-3.0
+(`crates/sound-physics-core/LICENSE`). Only the per-sound environment evaluation and the block
+material tables are ported; the OpenAL EFX calls are replaced by this project's own reverb, the
+debug ray rendering and the voice-chat integration are left out. Because it is linked into the
+game, the APK that includes it is a combined work under GPL-3.0; builds that leave this crate out
+are unaffected. Horizon is not affiliated with Sonic Ether or henkelmax.

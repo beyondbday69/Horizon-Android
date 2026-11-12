@@ -152,7 +152,7 @@ impl ModList {
             }
             // Importable `.hnmod` features (not built in like the four above): off
             // until the player turns them on.
-            for id in ["camera_overhaul", "barrel_roll"] {
+            for id in ["camera_overhaul", "barrel_roll", "sound_physics", "visible_hands"] {
                 if !enabled.contains(id) {
                     disabled.insert(id.to_owned());
                 }

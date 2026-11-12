@@ -287,6 +287,7 @@ mod shield;
 mod shoulders;
 mod sign_edit;
 mod sniffers;
+mod sound_physics;
 mod spawner;
 mod spear;
 mod spectator;
@@ -13385,6 +13386,9 @@ impl Game<'_> {
             .is_some_and(|p| p.auto_spin_attack_ticks > 0);
         let items = self.visible_hand_items();
         let off_hand_empty = items[1].is_none();
+        // Visible Hands (our own; the built-in `visible_hands` mod): the arm
+        // shows under a held item, and moves with our own animation.
+        let (visible_hands, visible_hands_animation) = android_bundled::visible_hands_settings(self);
         for (i, (hand, item)) in Hand::BOTH.into_iter().zip(items).enumerate() {
             if !shown[i] {
                 continue;
@@ -13425,6 +13429,25 @@ impl Game<'_> {
                 self.first_person_arm(left, m, packed, &mut out);
                 continue;
             };
+            // Visible Hands: the rig both the arm and the item are posed
+            // through, so our grip and animation move the pair as one.
+            let rig = if visible_hands {
+                horizon_client::first_person::HandAnimation {
+                    item: horizon_client::first_person::hand_item(&stack.item),
+                    swing: attack,
+                    time: self.world.game_time as f32,
+                    animated: visible_hands_animation,
+                }
+                .rig(left, inverse_height)
+            } else {
+                glam::Mat4::IDENTITY
+            };
+            if visible_hands && maps::map_id(&stack).is_none() && !self.own_invisible() {
+                let m = to_world
+                    * rig
+                    * horizon_client::first_person::player_arm_pose(left, inverse_height, attack);
+                self.first_person_arm(left, m, packed, &mut out);
+            }
             if let Some(id) = maps::map_id(&stack) {
                 use horizon_client::first_person::{MapHold, map_arm_poses, one_handed_map_pose};
                 let hold = MapHold::of(hand, off_hand_empty);
@@ -13527,6 +13550,7 @@ impl Game<'_> {
                 _ => ItemPose::Swing,
             };
             let m = to_world
+                * rig
                 * horizon_client::first_person::item_pose(left, inverse_height, attack, pose);
             // Seeded by the player id plus the context ordinal.
             let (context, seed) = if left {
