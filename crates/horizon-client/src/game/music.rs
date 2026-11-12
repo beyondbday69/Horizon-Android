@@ -243,7 +243,7 @@ impl Game<'_> {
         self.world
             .chunks
             .get(&(x >> 4, z >> 4))
-            .map_or(u16::from(0), |c| c.biome(x, y, z))
+            .map_or(0, |c| c.biome(x, y, z))
     }
 
     /// `isEyeInFluid(WATER)`: the eye inside the water of its block column.

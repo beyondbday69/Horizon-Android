@@ -27,7 +27,7 @@ use std::time::Instant;
 use bytemuck::{Pod, Zeroable};
 use grassiergrass_engine as engine;
 use horizon_client::mod_api::{
-    RenderHooks, RenderNeedsEvent, WorldDrawn, WorldDrawnEvent, wgpu,
+    Host, RenderHooks, RenderNeedsEvent, WorldDrawn, WorldDrawnEvent, wgpu,
 };
 
 use crate::game::Game;
@@ -66,13 +66,10 @@ fn enabled() -> bool {
 /// kernel, and each one's tinted grass colour. Falls back to untinted when the mod turns
 /// biome tint off or the column has no biomes loaded.
 fn biome_tint(game: &Game<'_>, surface: [f64; 3]) -> [f32; 3] {
-    let biomes = game.biomes();
-    let at = |quart: [i32; 3]| -> u16 {
-        game.biome_id_at([
-            f64::from(quart[0]),
-            f64::from(quart[1]),
-            f64::from(quart[2]),
-        ])
+    // `biomes` and the biome colours come from the mod API's `Host`, which `Game` implements.
+    let biomes = Host::biomes(game);
+    let at = |x: i32, y: i32, z: i32| -> u16 {
+        game.biome_id_at([f64::from(x), f64::from(y), f64::from(z)])
     };
     let weights = horizon_client::biome::gaussian_weights(surface, at);
     if weights.is_empty() {
@@ -578,15 +575,7 @@ pub(super) fn settings_click(game: &mut Game<'_>, row: usize) {
     let settings::Effect::Save(knob, value) = settings::click(&settings, row) else {
         return;
     };
-    let key = match knob {
-        settings::Knob::Radius => "radius",
-        settings::Knob::Density => "blades_per_block",
-        settings::Knob::Height => "blade_height",
-        settings::Knob::Width => "blade_width",
-        settings::Knob::BiomeTint => "biome_tint",
-        settings::Knob::Enabled => "enabled",
-    };
-    game.native_set_setting(settings::ID, key, &value);
+    game.native_set_setting(settings::ID, settings::key_of(knob), &value);
     // Drop the remembered anchor so the next frame bakes with the new values even when
     // the player has not moved.
     if let Some(mod_) = MOD.get() {

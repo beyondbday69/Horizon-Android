@@ -90,7 +90,8 @@ pub(crate) fn read(store: impl Fn(&str) -> Option<String>, knob: Knob, default: 
     store(key).unwrap_or_else(|| default_of(knob, default).to_owned())
 }
 
-fn key_of(knob: Knob) -> &'static str {
+/// The setting key a knob is stored under.
+pub(crate) fn key_of(knob: Knob) -> &'static str {
     match knob {
         Knob::Radius => "radius",
         Knob::Density => "blades_per_block",
@@ -141,7 +142,7 @@ pub(crate) fn load(store: impl Fn(&str) -> Option<String>) -> Settings {
 }
 
 /// What a click on `row` did, so the caller knows whether to rebuild.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Effect {
     /// Nothing changed.
     None,
@@ -155,30 +156,34 @@ pub(crate) fn click(settings: &Settings, row: usize) -> Effect {
     let Some(knob) = Knob::from_row(row) else {
         return Effect::None;
     };
-    let next = match knob {
-        Knob::Enabled => ("enabled", if settings.enabled { "off" } else { "on" }),
+    // Every arm is `(&'static str, String)`, so the borrow of the stepped value ends here.
+    let next: (&'static str, String) = match knob {
+        Knob::Enabled => (
+            "enabled",
+            if settings.enabled { "off" } else { "on" }.to_owned(),
+        ),
         Knob::BiomeTint => (
             "biome_tint",
-            if settings.biome_tint { "off" } else { "on" },
+            if settings.biome_tint { "off" } else { "on" }.to_owned(),
         ),
         Knob::Radius => (
             "radius",
-            &step(f32::from(settings.radius as i16), 4.0, 8.0, 48.0, 0),
+            step(f32::from(settings.radius as i16), 4.0, 8.0, 48.0, 0),
         ),
         Knob::Density => (
             "blades_per_block",
-            &step(settings.blades_per_block as f32, 4.0, 8.0, 64.0, 0),
+            step(settings.blades_per_block as f32, 4.0, 8.0, 64.0, 0),
         ),
         Knob::Height => (
             "blade_height",
-            &step(settings.blade_height, 0.05, 0.1, 0.6, 2),
+            step(settings.blade_height, 0.05, 0.1, 0.6, 2),
         ),
         Knob::Width => (
             "blade_width",
-            &step(settings.blade_width, 0.1, 0.5, 1.6, 2),
+            step(settings.blade_width, 0.1, 0.5, 1.6, 2),
         ),
     };
-    Effect::Save(knob, next.1.to_owned())
+    Effect::Save(knob, next.1)
 }
 
 /// `value` moved up one `increment`, wrapping to `min` past `max`. `decimals` matches the
