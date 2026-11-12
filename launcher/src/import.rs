@@ -7,6 +7,8 @@
 //!   is downloaded from Modrinth and checked against its SHA-512 (`browser::download`).
 //! - A `.mrpack` for a mod loader, or a CurseForge modpack zip (`manifest.json`): a Java
 //!   modpack, for the Modpacks import (`modpacks::import`).
+//! - A Horizon mod file (`.hmod` or `.hnmod`): added to the selected instance
+//!   (`browser::local`), which copies it, checks it and lists it.
 //! - A zip with `pack.mcmeta`: a data pack (`data/`) or a resource pack; with `shaders/`, or a
 //!   `.hshader`: a shader pack.
 //!
@@ -35,6 +37,8 @@ pub enum Dropped {
     Pack(packs::Kind),
     /// A data pack: it goes into a world.
     DataPack,
+    /// A Horizon mod (`.hmod` or `.hnmod`), for the selected instance.
+    Mod,
 }
 
 fn open(file: &Path) -> Result<zip::ZipArchive<fs::File>, String> {
@@ -68,6 +72,7 @@ pub fn what(file: &Path) -> Result<Dropped, String> {
         .map(|e| e.to_string_lossy().to_ascii_lowercase());
     match ext.as_deref() {
         Some("hshader") => return Ok(Dropped::Pack(packs::Kind::Shader)),
+        Some("hmod" | "hnmod") => return Ok(Dropped::Mod),
         Some("mrpack") => {
             let index = read_index(&mut open(file)?)?;
             let loaders = index["dependencies"]
@@ -81,8 +86,8 @@ pub fn what(file: &Path) -> Result<Dropped, String> {
         Some("zip") => {}
         _ => {
             return Err(format!(
-                "{name} can't be imported: drop a .mrpack, a .zip or a .hshader."
-            ))
+                "{name} can't be imported: drop a .hmod, .hnmod, .mrpack, a .zip or a .hshader."
+            ));
         }
     }
     let zip = open(file)?;

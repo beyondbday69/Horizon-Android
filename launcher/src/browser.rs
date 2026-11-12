@@ -23,6 +23,8 @@ pub mod java;
 #[cfg(not(target_os = "android"))]
 #[path = "browser/java_instance.rs"]
 pub mod java_instance;
+#[path = "browser/local.rs"]
+pub mod local;
 #[path = "browser/lock.rs"]
 pub mod lock;
 #[path = "browser/modrinth.rs"]
@@ -89,6 +91,9 @@ pub enum SourceId {
     CurseForge,
     /// Horizon's own registry of reviewed mods, modpacks and resource packs ([`horizon`]).
     Horizon,
+    /// A file the player added themselves ([`local`]): not a source, so it is never searched,
+    /// updated or taken down.
+    Local,
 }
 
 impl SourceId {
@@ -97,6 +102,7 @@ impl SourceId {
             SourceId::Modrinth => "Modrinth",
             SourceId::CurseForge => "CurseForge",
             SourceId::Horizon => "Horizon",
+            SourceId::Local => "this computer",
         }
     }
 

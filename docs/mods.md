@@ -14,8 +14,12 @@ Mods are **off by default**. A fresh install has no `horizon-mods` folder and pl
 
 ## Playing with mods
 
-1. Install a mod from the launcher's Mods page ([mod-browser.md](mod-browser.md)), or put its files by hand in the
-   game folder (the one holding `options.txt`): a content mod's `.hmod` (or a folder holding `horizon-mod.toml`) in
+1. Install a mod from the launcher's Mods page ([mod-browser.md](mod-browser.md)): **Add mod file…**
+   (or `horizon-launcher mods add-file FILE`, or drop the file on the window) adds a `.hmod` or
+   `.hnmod` already on your computer, checked as a download is; a content mod appears in **Installed**, a native one
+   as a local file row.
+   Or put its files by hand in the game folder (the one holding `options.txt`): a content mod's
+   `.hmod` (or a folder holding `horizon-mod.toml`) in
    `horizon-mods/`. Native mods go in `horizon-native-mods/`, and the launcher builds them
    ([native-mods.md](native-mods.md)).
 2. Options > **Mods** lists them with what each may do ("May add blocks, items, mob effects and entity types to your

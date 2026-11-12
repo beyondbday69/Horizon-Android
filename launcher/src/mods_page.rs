@@ -7,8 +7,8 @@
 use super::line_edit::{self, Key, LineEdit};
 use super::*;
 use horizon_launcher::browser::{
-    self, horizon, installed, java, java_instance, Kind as PackKind, Project, Query, SourceId,
-    Support,
+    self, horizon, installed, java, java_instance, local, Kind as PackKind, Project, Query,
+    SourceId, Support,
 };
 use horizon_launcher::modpacks;
 use horizon_launcher::native_status;
@@ -977,12 +977,101 @@ impl Launcher {
         body = body.child(controls);
         // Native mods from a GitHub link: Horizon instances, on the Mods tab.
         if self.mods.kind == PackKind::Mod && self.mods.java.is_none() {
+            body = body.child(self.mod_file_row(cx));
             body = body.child(self.github_panel(cx));
         }
         if let Some(list) = self.mods_installed_list(cx) {
             body = body.child(list);
         }
         page(body.child(self.mods_results(cx)))
+    }
+
+    /// "Add mod file…": an `.hmod` or `.hnmod` already on this computer, instead of a
+    /// registry download or a GitHub link (`browser::local`). Horizon instances only: a Java
+    /// instance runs jars.
+    fn mod_file_row(&self, cx: &mut Context<Self>) -> Div {
+        let t = self.theme;
+        let busy = self.mods.busy.is_some();
+        let add = button("mods-add-file", "Add mod file…", Kind::Secondary, &t);
+        let add = if busy {
+            disabled(add)
+        } else {
+            add.on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                this.add_mod_file(cx);
+                cx.notify();
+            }))
+        };
+        div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(px(12.))
+            .child(add)
+            .child(text(theme::CAPTION).text_color(t.muted).child(tr(
+                "A file on this computer: .hmod (sandboxed, read when the game starts) or .hnmod \
+                 (native code, built into this instance). Neither runs while it is added.",
+            )))
+    }
+
+    /// Adds the files the picker returns to the selected instance (`browser::local`).
+    fn add_mod_file(&mut self, cx: &mut Context<Self>) {
+        let Some(instance) = self.selected_instance().cloned() else {
+            return;
+        };
+        let paths = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: true,
+            prompt: Some(tr("Add mod file").into()),
+        });
+        cx.spawn(async move |this, cx| {
+            if let Ok(Ok(Some(paths))) = paths.await {
+                let _ = this.update(cx, |this, cx| {
+                    let home = instance.home;
+                    let (mut content, mut native, mut failed) =
+                        (Vec::new(), Vec::new(), Vec::new());
+                    for path in paths {
+                        match local::install(&home, &path) {
+                            Ok(a) if a.native => native.push(format!("{} {}", a.title, a.version)),
+                            Ok(a) => content.push(format!("{} {}", a.title, a.version)),
+                            Err(e) => failed.push(e),
+                        }
+                    }
+                    let mut said = String::new();
+                    if !content.is_empty() {
+                        said += &trf(
+                            "Added {names}. Turn one on below; the game reads it when it starts.",
+                            &[("names", &content.join(", "))],
+                        );
+                    }
+                    if !native.is_empty() {
+                        if !said.is_empty() {
+                            said.push(' ');
+                        }
+                        said += &trf(
+                            "Added {names}: build it with the instance's native build to run it.",
+                            &[("names", &native.join(", "))],
+                        );
+                    }
+                    this.mods.message = Some(match failed.is_empty() {
+                        true => Ok(said),
+                        false if said.is_empty() => Err(failed.join("; ")),
+                        false => Err(format!("{said} {}", failed.join("; "))),
+                    });
+                    this.mods_list_changed();
+                    cx.notify();
+                });
+            }
+        })
+        .detach();
+    }
+
+    /// Re-reads the installed list after a mod file was added or removed (`browser::local`).
+    pub(super) fn mods_list_changed(&mut self) {
+        let home = self.mods.home();
+        self.mods.installed = installed::Installed::load(&home).entries;
+        self.mods.installed_list.reset();
+        self.instance_mods_changed();
     }
 
     /// Which instance installs go into, even when it is the only one: native mods build into it.
@@ -1250,6 +1339,9 @@ impl Launcher {
                 None if e.source == SourceId::Horizon => Some(
                     horizon::mod_id(e).is_some_and(|id| java::is_enabled(&self.mods.home(), id)),
                 ),
+                None if e.source == SourceId::Local => {
+                    Some(java::is_enabled(&self.mods.home(), &e.project))
+                }
                 None => None,
             };
             if let Some(on) = on {
@@ -1421,7 +1513,8 @@ impl Launcher {
                 line(format!(
                     "{step} - {}",
                     native_mods::duration_label(
-                        self.native_started.map_or(0, |(s, _)| s.elapsed().as_secs())
+                        self.native_started
+                            .map_or(0, |(s, _)| s.elapsed().as_secs())
                     )
                 ))
                 .text_color(t.accent),

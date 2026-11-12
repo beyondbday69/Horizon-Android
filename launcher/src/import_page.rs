@@ -45,6 +45,44 @@ impl Launcher {
                         }));
                     self.game_packs.stale();
                 }
+                Ok(Dropped::Mod) => {
+                    let Some(i) = self.selected_instance().cloned() else {
+                        continue;
+                    };
+                    if i.java.is_some() {
+                        self.importing.note = Some(Err(tr(
+                            "Mod files go into Horizon instances: a Java one runs jars.",
+                        )));
+                        continue;
+                    }
+                    let done = horizon_launcher::browser::local::install(&i.home, &file);
+                    if done.is_ok() {
+                        self.mods_list_changed();
+                    }
+                    self.importing.note = Some(done.map(|a| {
+                        if a.native {
+                            trf(
+                                "Added {title} {version} to {instance}: build it with the \
+                                 instance's native build to run it.",
+                                &[
+                                    ("title", &a.title),
+                                    ("version", &a.version),
+                                    ("instance", &i.name),
+                                ],
+                            )
+                        } else {
+                            trf(
+                                "Added {title} {version} to {instance}: turn it on under Mods, \
+                                 then start the game.",
+                                &[
+                                    ("title", &a.title),
+                                    ("version", &a.version),
+                                    ("instance", &i.name),
+                                ],
+                            )
+                        }
+                    }));
+                }
                 Ok(Dropped::DataPack) => {
                     self.importing.note = Some(Err(trf(
                         "{name} is a data pack: drop it on a world on Home, or install it into \
