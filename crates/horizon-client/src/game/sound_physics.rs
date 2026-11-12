@@ -10,7 +10,7 @@
 //! which is based on Sound Physics by Sonic Ether.
 
 use super::*;
-use crate::sound_engine::{Attenuation, SoundInstance};
+use horizon_client::sound_engine::{Attenuation, SoundInstance};
 use sound_physics_core::{
     Config, Environment, RateLimiter, RayHit, Send, SoundWorld, blocks, evaluate, is_ambient_sound,
 };
