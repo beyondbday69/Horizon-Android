@@ -20,6 +20,7 @@ sound-physics-core = { path = "../sound-physics-core" }
 # Hold My Items' first-person hand & item animation engine, ported (MIT): the
 # built-in hold_my_items feature (THIRD_PARTY_NOTICES.md).
 hold-my-items-core = { path = "../hold-my-items-core" }
+grassiergrass-engine = { path = "../grassiergrass-engine" }
 horizon-command = { path = "../horizon-command" }
 horizon-items = { path = "../horizon-items" }
 horizon-core = { path = "../horizon-core" }

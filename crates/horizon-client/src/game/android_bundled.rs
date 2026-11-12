@@ -1033,6 +1033,13 @@ pub(super) fn native_mods(game: &mut Game<'_>, mods: &mut Vec<NativeMod>) {
     }
 
     ensure_dynamic_mods_loaded(game, true);
+    // Grassier Grass ships built in, so its row is listed here rather than from a bundle.
+    mods.push(NativeMod {
+        id: "grassiergrass".into(),
+        title: "Grassier Grass".into(),
+        description: "Bakes grass blades on grass blocks around the camera, with wind.".into(),
+        keys: vec![],
+    });
     if let Ok(guard) = runtime().lock() {
         for m in guard.mods.values() {
             if mods.iter().any(|existing| existing.id == m.id) {
@@ -1740,6 +1747,11 @@ pub(super) fn native_frame(game: &mut Game<'_>, elapsed: Duration) {
     if hold_my_items_active(game) {
         super::hold_my_items::hmi_frame(game, elapsed);
     }
+    // Grassier Grass: resolve the gate, which its renderer reads, then bake a new
+    // blade mesh if the camera moved far enough.
+    if grassiergrass_active(game) {
+        super::grassiergrass::frame(game);
+    }
 }
 
 pub(super) fn native_panel_event(game: &mut Game<'_>, mod_id: &str, event: &NativePanelEvent) {
@@ -2181,6 +2193,20 @@ pub(super) fn hold_my_items_active(game: &Game<'_>) -> bool {
         .mods
         .values()
         .any(|m| game.native_on(&m.id) && m.features.contains("hold_my_items"))
+}
+
+/// Grassier Grass' gate: whether its blades should be drawn. Its renderer holds this
+/// for the render thread, which cannot reach `native_on`.
+pub(super) fn grassiergrass_active(game: &Game<'_>) -> bool {
+    let Ok(guard) = runtime().lock() else {
+        return false;
+    };
+    let on = guard
+        .mods
+        .values()
+        .any(|m| game.native_on(&m.id) && m.features.contains("grassiergrass"));
+    super::grassiergrass::set_enabled(on);
+    on
 }
 
 /// Visible Hands' settings: whether the arm shows under a held item, and whether

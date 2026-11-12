@@ -139,6 +139,7 @@ mod golems;
 mod growth;
 mod hand;
 mod headless;
+mod grassiergrass;
 mod hold_my_items;
 mod ime;
 mod initial_spawn;
@@ -21261,6 +21262,14 @@ fn new_event_loop() -> std::result::Result<EventLoop<()>, winit::error::EventLoo
 }
 #[cfg(not(target_os = "android"))]
 pub use launch_api::{UsageError, exit_code};
+
+/// Render hooks of the features built into the game, in draw order. These are not
+/// `.hnmod` bundles: they ship in the binary and are gated by their feature, not installed.
+pub(crate) fn builtin_renderers() -> Vec<&'static dyn crate::gfx::native_render::RenderHooks> {
+    let mut renderers: Vec<&'static dyn crate::gfx::native_render::RenderHooks> = Vec::new();
+    renderers.push(grassiergrass::render_hooks());
+    renderers
+}
 
 pub fn run() -> Result<()> {
     let Some(mut options) = Options::read()? else {

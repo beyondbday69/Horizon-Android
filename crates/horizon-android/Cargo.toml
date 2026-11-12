@@ -21,6 +21,7 @@ camera-overhaul-core = { path = "../camera-overhaul-core" }
 barrel-roll-core = { path = "../barrel-roll-core" }
 sound-physics-core = { path = "../sound-physics-core" }
 hold-my-items-core = { path = "../hold-my-items-core" }
+grassiergrass-engine = { path = "../grassiergrass-engine" }
 android_logger = "0.15"
 regex = "1"
 horizon-hdr = { path = "../horizon-hdr" }

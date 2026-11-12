@@ -158,6 +158,7 @@ impl ModList {
                 "sound_physics",
                 "visible_hands",
                 "hold_my_items",
+                "grassiergrass",
             ] {
                 if !enabled.contains(id) {
                     disabled.insert(id.to_owned());

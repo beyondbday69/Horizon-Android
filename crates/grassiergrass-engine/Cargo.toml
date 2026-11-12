@@ -1,0 +1,13 @@
+[package]
+name = "grassiergrass-engine"
+version = "0.1.0"
+edition.workspace = true
+license-file = "LICENSE"
+publish = false
+description = "Grassier Grass's CPU blade mesher, game-free so it can be tested on its own."
+
+[dependencies]
+bytemuck = { version = "1.25", features = ["derive"] }
+
+[lib]
+path = "src/lib.rs"

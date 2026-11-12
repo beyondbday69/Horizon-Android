@@ -125,3 +125,20 @@ scripts are licensed CC0-1.0. Only the animation maths are ported; the injector,
 takeover and the resource pack of the Horizon port are not. Horizon is not affiliated with the
 Hold My Items authors or with iuaititi.
 
+
+## Grassier Grass
+
+`crates/grassiergrass-engine` and `crates/horizon-client/src/game/grassiergrass/` carry
+[Grassier Grass](https://modrinth.com/mod/grassier-grass) 1.4.5's blade mesher and wind shader, as
+a native Rust port, and are included with the permission of its author, leonardoinc22.
+
+Grassier Grass is **All Rights Reserved** and is not open source: like Punchy above, no part of
+its code, shader or assets may be copied, modified or redistributed without fresh written
+permission from the author. Keep that permission with any redistribution. Only this clean rewrite
+is shipped here; the original jar, its decompiled Java and its assets are not included.
+
+The port is a deliberate vertical slice, not feature parity: blades appear on
+`minecraft:grass_block` only (no short grass, tall grass, flowers, cactus or snow), 24 blades per
+block instead of a configurable 64, a fixed 20-block radius with no LOD rings, clumps or trails, a
+baked green palette instead of the block's biome tint, and procedural WGSL noise in place of the
+original noise textures. There is no config screen and no Iris/Sodium integration.

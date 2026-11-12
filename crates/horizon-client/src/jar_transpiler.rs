@@ -282,6 +282,10 @@ pub fn canonical_horizon_mod_meta(mod_id: &str) -> Option<(&'static str, &'stati
             "Hold My Items",
             "First-person arms and items that move like an extension of your body: swings, walking, sneaking, eating, climbing, and per-item poses.",
         )),
+        "grassiergrass" | "grassier_grass" => Some((
+            "Grassier Grass",
+            "Bakes grass blades on grass blocks around the camera, with wind.",
+        )),
         "auto_totem" | "autototem" => Some((
             "Auto Totem Helper",
             "Displays remaining Totems of Undying on the HUD and warns when off-hand totem is depleted.",
@@ -672,6 +676,12 @@ pub fn infer_features_from_id_and_signals(
         || combined.contains("hold my items")
     {
         features.insert("hold_my_items".to_owned());
+    }
+    if matches!(id_low.as_str(), "grassiergrass" | "grassier_grass" | "grassier-grass")
+        || combined.contains("grassiergrass")
+        || combined.contains("grassier_grass")
+    {
+        features.insert("grassiergrass".to_owned());
     }
     if features.is_empty() {
         features.insert("hud_overlay".to_owned());

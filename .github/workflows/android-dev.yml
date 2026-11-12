@@ -139,6 +139,7 @@ jobs:
           cargo test -p barrel-roll-core
           cargo test -p sound-physics-core
           cargo test -p hold-my-items-core
+          cargo test -p grassiergrass-engine
       - name: Check public source and packaging boundaries
         run: |
           python3 tools/check_public_tree.py
@@ -183,6 +184,8 @@ jobs:
           shutil.copyfile('visible_hands.hnmod', out / 'visible_hands.hnmod')
           # The importable Hold My Items bundle (Options > Mods > Import).
           shutil.copyfile('hold_my_items.hnmod', out / 'hold_my_items.hnmod')
+          # The importable Grassier Grass bundle (Options > Mods > Import).
+          shutil.copyfile('grassiergrass.hnmod', out / 'grassiergrass.hnmod')
           (out / 'BUILD.json').write_text(json.dumps({'commit': sha, 'abi': abi, 'profile': 'release',
               'package': 'dev.horizon.android.dev', 'experimental': True,
               'run': f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'}, indent=2) + '\n')
