@@ -13,6 +13,8 @@ static ALLOCATOR: horizon_threads::Allocator = horizon_threads::Allocator;
 static MOD_API_LEVEL: [u8; 27] = horizon_mods::api_level::MARK;
 
 fn main() {
+    // Features built into the game draw through the same pass as trait mods.
+    horizon_client::game::install_builtin_renderers();
     horizon_client::mod_api::install_runtime_hooks(Default::default());
     horizon_threads::configure_allocator();
     std::hint::black_box(&MOD_API_LEVEL);

@@ -924,14 +924,11 @@ pub fn install_runtime_hooks(mods: Mods) {
     if !mods.is_empty() || MODS.get().is_none() {
         let _ = MODS.set(mods);
     }
-    let mut renderers: Vec<&'static dyn crate::gfx::native_render::RenderHooks> = self::mods()
+    let renderers = self::mods()
         .iter()
         .filter_map(|m| m.render())
         .collect();
-    // Features built into the game draw through the same pass as trait mods, but they
-    // are not `.hnmod` bundles, so they are appended here instead of being loaded.
-    renderers.extend(crate::game::builtin_renderers());
-    let _ = crate::gfx::native_render::install(renderers.into_boxed_slice());
+    let _ = crate::gfx::native_render::install(renderers);
     let _ = horizon_world::native_load_hooks::install(
         horizon_world::native_load_hooks::NativeLoadHooks {
             loot_table_load: |id, table| {

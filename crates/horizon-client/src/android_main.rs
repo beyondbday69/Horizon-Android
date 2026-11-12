@@ -199,6 +199,8 @@ fn init_logging() {
 
 #[unsafe(no_mangle)]
 fn android_main(app: AndroidApp) {
+    // Features built into the game draw through the same pass as trait mods.
+    horizon_client::game::install_builtin_renderers();
     horizon_client::mod_api::install_runtime_hooks(Default::default());
     use winit::platform::android::activity::input::Axis;
     for axis in [

@@ -19,11 +19,25 @@ pub use wgpu;
 
 static RENDERERS: OnceLock<Box<[&'static dyn RenderHooks]>> = OnceLock::new();
 
+/// A renderer of a feature built into the game. Those are not `.hnmod` bundles, so
+/// [`install`] never sees them: it appends this one to the list it stores.
+static BUILT_IN: OnceLock<&'static dyn RenderHooks> = OnceLock::new();
+
+/// Registers the built-in feature renderer, if any. Call it before [`install`]; the
+/// first registration wins.
+pub fn install_built_in(renderer: &'static dyn RenderHooks) {
+    let _ = BUILT_IN.set(renderer);
+}
+
 /// Install trait mod renderers in dispatch order, once per process.
 pub fn install(
     renderers: Box<[&'static dyn RenderHooks]>,
 ) -> Result<(), Box<[&'static dyn RenderHooks]>> {
-    RENDERERS.set(renderers)
+    let mut list = renderers.into_vec();
+    if let Some(built_in) = BUILT_IN.get().copied() {
+        list.push(built_in);
+    }
+    RENDERERS.set(list.into_boxed_slice())
 }
 
 static MODS_BUILT_IN: AtomicBool = AtomicBool::new(false);
@@ -91,17 +105,17 @@ pub struct RenderNeeds {
 
 #[inline(never)]
 pub fn native_world_drawn(world: &mut WorldDrawn<'_>) {
-    generated::dispatch_world_drawn(RENDERERS.get().map_or(&[], |renderers| renderers), world);
+    generated::dispatch_world_drawn(RENDERERS.get().map_or(&[], |r| r), world);
 }
 
 #[inline(never)]
 pub fn native_hand_drawn(hand: &mut HandDrawn<'_>) {
-    generated::dispatch_hand_drawn(RENDERERS.get().map_or(&[], |renderers| renderers), hand);
+    generated::dispatch_hand_drawn(RENDERERS.get().map_or(&[], |r| r), hand);
 }
 
 #[inline(never)]
 pub fn native_render_needs(needs: &mut RenderNeeds) {
-    generated::dispatch_render_needs(RENDERERS.get().map_or(&[], |renderers| renderers), needs);
+    generated::dispatch_render_needs(RENDERERS.get().map_or(&[], |r| r), needs);
 }
 
 pub fn render_needs() -> RenderNeeds {

@@ -21263,12 +21263,11 @@ fn new_event_loop() -> std::result::Result<EventLoop<()>, winit::error::EventLoo
 #[cfg(not(target_os = "android"))]
 pub use launch_api::{UsageError, exit_code};
 
-/// Render hooks of the features built into the game, in draw order. These are not
-/// `.hnmod` bundles: they ship in the binary and are gated by their feature, not installed.
-pub(crate) fn builtin_renderers() -> Vec<&'static dyn crate::gfx::native_render::RenderHooks> {
-    let mut renderers: Vec<&'static dyn crate::gfx::native_render::RenderHooks> = Vec::new();
-    renderers.push(grassiergrass::render_hooks());
-    renderers
+/// Registers the render hooks of features built into the game. These are not `.hnmod`
+/// bundles, so they are installed here rather than loaded; each checks its own feature
+/// gate per frame.
+pub fn install_builtin_renderers() {
+    crate::gfx::native_render::install_built_in(grassiergrass::render_hooks());
 }
 
 pub fn run() -> Result<()> {
