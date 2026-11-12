@@ -402,11 +402,6 @@ pub(super) fn parse_dynamic_hnmod(path: &std::path::Path) -> Option<DynamicHnmod
     features.extend(inferred);
 
     // Populate authentic keybinds per mod type
-    if features.contains("hold_my_items") {
-        super::hold_my_items::hmi_settings_click(game, button);
-        return;
-    }
-
     if features.contains("wrench") {
         // Wrench uses right-click on blocks, no keybind needed (just like official wrench)
     } else if features.contains("veinminer") {
@@ -1349,6 +1344,11 @@ pub(super) fn native_settings_click(game: &mut Game<'_>, mod_id: &str, button: u
     let Some((features, custom_buttons)) = features_and_custom else {
         return;
     };
+
+    if features.contains("hold_my_items") {
+        super::hold_my_items::hmi_settings_click(game, button);
+        return;
+    }
 
     if features.contains("wrench") {
         match button {

@@ -20,6 +20,7 @@ horizon-client = { path = "../horizon-client", default-features = false }
 camera-overhaul-core = { path = "../camera-overhaul-core" }
 barrel-roll-core = { path = "../barrel-roll-core" }
 sound-physics-core = { path = "../sound-physics-core" }
+hold-my-items-core = { path = "../hold-my-items-core" }
 android_logger = "0.15"
 regex = "1"
 horizon-hdr = { path = "../horizon-hdr" }

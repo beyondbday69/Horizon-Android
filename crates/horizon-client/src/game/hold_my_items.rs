@@ -661,7 +661,6 @@ impl Game<'_> {
                                 light: packed_light,
                                 lights: Some(lights),
                                 glint: self.glint(),
-                                tier: 0,
                             };
                             self.pack.item_renderer.submit_special(
                                 model,
@@ -831,7 +830,6 @@ impl Game<'_> {
                 light,
                 lights: Some(lights),
                 glint: self.glint(),
-                tier: 0,
             },
             animator,
             layer_pose,
@@ -906,7 +904,7 @@ impl Game<'_> {
                     normal: [0, 0, 127, 0],
                     pos: pos_world,
                     uv,
-                    layer: crate::gfx::TRANSLUCENT_ITEM_OVERLAY,
+                    layer: horizon_client::gfx::TRANSLUCENT_ITEM_OVERLAY,
                     color,
                     light,
                     glint_uv: [0.0, 0.0],
