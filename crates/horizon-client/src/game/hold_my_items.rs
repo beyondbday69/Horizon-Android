@@ -287,7 +287,18 @@ impl Game<'_> {
         if self.creative && !self.res.items().can_destroy_block(self.held(), true) {
             return false;
         }
-        self.mining.is_some() || (self.clicks.destroying.active && self.left)
+        // `Minecraft.continueAttack` calls `swing` on every destroy tick, so a held break
+        // reaches `hmi_swing_hand` many times a second. HMI only keeps one clean repeating
+        // swing when it is told the hold is continuous; otherwise each call restarts the
+        // animation mid-arc and the tool looks like it plays several animations at once.
+        // On touch `self.left` stays false while a break is in progress, so the destroy
+        // state itself has to count: `ticks`/`progress` rule out a one-off sword hit on a
+        // block, which starts a `Destroying` that never advances.
+        self.mining.is_some()
+            || (self.clicks.destroying.active
+                && (self.left
+                    || self.clicks.destroying.ticks > 0.0
+                    || self.clicks.destroying.progress > 0.0))
     }
 
     /// Sanitizes stuck mouse button (`self.left`, `self.right`) and block-destroying states
