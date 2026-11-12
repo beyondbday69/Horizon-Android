@@ -21267,7 +21267,7 @@ pub use launch_api::{UsageError, exit_code};
 /// bundles, so they are installed here rather than loaded; each checks its own feature
 /// gate per frame.
 pub fn install_builtin_renderers() {
-    crate::gfx::native_render::install_built_in(grassiergrass::render_hooks());
+    horizon_client::gfx::native_render::install_built_in(grassiergrass::render_hooks());
 }
 
 pub fn run() -> Result<()> {
