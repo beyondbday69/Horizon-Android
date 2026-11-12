@@ -138,6 +138,7 @@ jobs:
           cargo test -p camera-overhaul-core
           cargo test -p barrel-roll-core
           cargo test -p sound-physics-core
+          cargo test -p hold-my-items-core
       - name: Check public source and packaging boundaries
         run: |
           python3 tools/check_public_tree.py
