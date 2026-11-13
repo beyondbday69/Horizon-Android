@@ -202,6 +202,11 @@ jobs:
         env:
           MODS: ${{ matrix.build.mods }}
           BUILD_NAME: ${{ matrix.build.name }}
+          # Only the game library is published (built/*.so + *.json), so skip
+          # the APK: build_apk.py returns before linking resources and before
+          # build_launchers, which needs packaging/android/native/java_launcher.c
+          # that this tree does not have.
+          NATIVE_LIBRARY_ONLY: 1
         run: |
           bundles=()
           for id in $MODS; do bundles+=("tools/native-mods/$id/mixins/$id"); done
