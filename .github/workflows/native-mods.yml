@@ -174,8 +174,13 @@ jobs:
       - name: Install Rust for Android and cargo-ndk
         if: runner.environment == 'github-hosted'
         run: |
-          rustup toolchain install stable --profile minimal --target aarch64-linux-android
-          rustup default stable
+          # rust-toolchain.toml pins the toolchain (1.95.0), so install the
+          # target on that one: `rustup show` makes it active. Installing it
+          # on `stable` instead leaves the pinned toolchain without
+          # aarch64-linux-android, and the build fails with "can't find crate
+          # for `core`".
+          rustup show
+          rustup target add aarch64-linux-android
           cargo install cargo-ndk --version 3.5.4 --locked
       # As android.yml's release build: the fast profile needs more than the runner's 16 GB.
       - name: Make room for the release build
