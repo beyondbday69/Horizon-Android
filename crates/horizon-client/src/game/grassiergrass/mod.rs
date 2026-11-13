@@ -66,7 +66,6 @@ fn enabled() -> bool {
 fn biome_tint(game: &Game<'_>, surface: [f64; 3]) -> [f32; 3] {
     // The colour tables live on the game's resources, as does the world's own list when a
     // pack supplies biomes, so this reads through the same accessor the terrain does.
-    let biomes = game.res.biomes();
     let at = |x: i32, y: i32, z: i32| -> u16 {
         game.biome_id_at([f64::from(x), f64::from(y), f64::from(z)])
     };
@@ -74,6 +73,9 @@ fn biome_tint(game: &Game<'_>, surface: [f64; 3]) -> [f32; 3] {
     if weights.is_empty() {
         return [1.0, 1.0, 1.0];
     }
+    // Read after the closure above released its borrow of `game`: the macro borrows a
+    // field, so it cannot coexist with the `&self` method the closure calls.
+    let biomes = world_biomes!(game);
     let blended =
         horizon_client_render::biome::blend_rgb(&weights, |id| {
             horizon_client_render::biome::rgb(biomes.grass(id, surface[0], surface[2]))
@@ -599,7 +601,8 @@ impl Gpu {
             });
             // `set_bind_group` takes anything `Option<&BindGroup>` is built from, and the
             // only such impl is the blanket one, so the reference must be explicit.
-            pass.set_bind_group(0, Some(&cached.1), &[]);
+            let group: Option<&wgpu::BindGroup> = Some(&cached.1);
+            pass.set_bind_group(0, group, &[]);
         }
         pass.set_vertex_buffer(0, vertices.slice(..));
         pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
