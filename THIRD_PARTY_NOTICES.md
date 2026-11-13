@@ -117,6 +117,9 @@ are unaffected. Horizon is not affiliated with Sonic Ether or henkelmax.
 
 ## Hold My Items
 
+Mirrored at <https://github.com/beyondbday69/Horizon-HoldMyItems>, which carries the
+`.hnmod` release for this feature.
+
 `crates/hold-my-items-core` is a Rust port of the first-person hand and item animation engine of
 [Hold My Items](https://modrinth.com/mod/hold-my-items) 5.1.1, by way of
 [iuaititi's Horizon port](https://github.com/iuaiti/Hold-my-items-horizon), which is licensed under
@@ -128,6 +131,9 @@ Hold My Items authors or with iuaititi.
 
 ## Grassier Grass
 
+Mirrored at <https://github.com/beyondbday69/Horizon-GrassierGrass>, which carries the
+`.hnmod` release for this feature.
+
 `crates/grassiergrass-engine` and `crates/horizon-client/src/game/grassiergrass/` carry
 [Grassier Grass](https://modrinth.com/mod/grassier-grass) 1.4.5's blade mesher and wind shader, as
 a native Rust port, and are included with the permission of its author, leonardoinc22.
@@ -138,7 +144,9 @@ permission from the author. Keep that permission with any redistribution. Only t
 is shipped here; the original jar, its decompiled Java and its assets are not included.
 
 The port is a deliberate vertical slice, not feature parity: blades appear on
-`minecraft:grass_block` only (no short grass, tall grass, flowers, cactus or snow), 24 blades per
-block instead of a configurable 64, a fixed 20-block radius with no LOD rings, clumps or trails, a
-baked green palette instead of the block's biome tint, and procedural WGSL noise in place of the
-original noise textures. There is no config screen and no Iris/Sodium integration.
+`minecraft:grass_block` only (no short grass, tall grass, flowers, cactus or snow), with no LOD
+rings, clumps or trails, and procedural WGSL noise in place of the original noise textures. There
+is no Iris/Sodium integration. What this port does have: biome tint, blended across the quart
+cells around each column with the game's own gaussian kernel as terrain is, and settings for
+radius (8-48), density (8-64 blades per block), blade height, blade width, biome tint and on/off
+under `Options > Mods > Grassier Grass`.
