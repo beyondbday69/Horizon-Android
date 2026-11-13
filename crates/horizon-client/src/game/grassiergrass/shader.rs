@@ -46,6 +46,9 @@ struct Globals {
     wind: vec4<f32>,
     // x = baked blade length in blocks, y = width scale, z = brightness, w = noise scroll.
     params: vec4<f32>,
+    // The players blades part for, mesh-relative: xyz = position, w = how far a blade
+    // within reach leans away. An unused slot has w = 0 and is skipped.
+    pushers: array<vec4<f32>, 4>,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -80,6 +83,8 @@ const BEND_LOWER_CONTROL_HEIGHT: f32 = 0.45;
 const BEND_UPPER_CONTROL_HEIGHT: f32 = 0.82;
 const BEND_UPPER_CONTROL_FRACTION: f32 = 0.22;
 const BEND_TIP_FRACTION: f32 = 1.0;
+/// How far a blade at the centre of a player's reach leans, in blocks.
+const PUSH_LEAN: f32 = 0.45;
 const WIND_CURVE_ROTATION: f32 = 0.4;
 const WIND_CURVE_PEAK_ROTATION: f32 = 0.52;
 const WIND_CURVE_LOWER_ROTATION_FRACTION: f32 = 0.30;
@@ -282,6 +287,47 @@ fn vs_blade(input: VertexIn) -> VertexOut {
     let animation_length = max(blade_length, DEFAULT_ANIMATION_BLADE_LENGTH * class_multiplier);
     var base_point = source_center;
     base_point.y -= blade_length * height;
+
+    // STEP 6a: part for whichever player is standing in it. A blade inside reach leans
+    // directly away from that player, by more the closer it is, so walking through grass
+    // brushes it aside instead of clipping through. The root stays planted: `base_point`
+    // keeps its height and only the part above it moves, which is what the spine below
+    // bends around.
+    var push = vec2<f32>(0.0, 0.0);
+    var push_amount = 0.0;
+    for (var i = 0; i < 4; i = i + 1) {
+        let pusher = globals.pushers[i];
+        if (pusher.w <= 0.0) {
+            continue;
+        }
+        let away = source_center.xz - pusher.xz;
+        let distance = length(away);
+        if (distance >= pusher.w) {
+            continue;
+        }
+        // `away` is degenerate at the exact centre, so fall back to a fixed direction
+        // there rather than normalising zero and getting NaN across the blade.
+        let fallback = vec2<f32>(pusher.w, 0.0);
+        let dir = normalize(select(away, fallback, distance < 1e-4));
+        let closeness = 1.0 - distance / pusher.w;
+        // Squared so the bend starts gently at the edge of the reach and ramps up
+        // quickly under the player.
+        let strength = closeness * closeness;
+        push = push + dir * strength;
+        push_amount = max(push_amount, strength);
+    }
+    let push_reach = PUSH_LEAN * push_amount;
+    push = select(push, vec2<f32>(0.0, 0.0), push_amount <= 0.0);
+    if (push_amount > 0.0) {
+        let push_dir = normalize(push);
+        // Lean proportional to height, so the tip travels furthest and the base stays
+        // put.
+        let lean = push_reach * height;
+        source_center.x = source_center.x + push_dir.x * lean;
+        source_center.z = source_center.z + push_dir.y * lean;
+        base_point.x = base_point.x + push_dir.x * lean;
+        base_point.z = base_point.z + push_dir.y * lean;
+    }
 
     var rest_curve = mix(REST_CURVE_ROTATION_MIN, REST_CURVE_ROTATION_MAX, rest_random) * rest_fade * (bend_eligibility + 0.25);
     let wind_curve = WIND_CURVE_ROTATION * wind_curve_response(rotation) * bend_eligibility;

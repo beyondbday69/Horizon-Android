@@ -70,13 +70,13 @@ fn biome_tint(game: &Game<'_>, surface: [f64; 3]) -> [f32; 3] {
     let at = |x: i32, y: i32, z: i32| -> u16 {
         game.biome_id_at([f64::from(x), f64::from(y), f64::from(z)])
     };
-    let weights = horizon_client::biome::gaussian_weights(surface, at);
+    let weights = horizon_client_render::biome::gaussian_weights(surface, at);
     if weights.is_empty() {
         return [1.0, 1.0, 1.0];
     }
     let blended =
-        horizon_client::biome::blend_rgb(&weights, |id| {
-            horizon_client::biome::rgb(biomes.grass(id, surface[0], surface[2]))
+        horizon_client_render::biome::blend_rgb(&weights, |id| {
+            horizon_client_render::biome::rgb(biomes.grass(id, surface[0], surface[2]))
         });
     // The blades are baked in the original's own greens; the multiplier lands them on the
     // biome colour without going black where that colour is dark.
@@ -99,6 +99,9 @@ struct Mod {
     /// The camera the last render pass drew from. World reads only happen in `frame`, so
     /// the rebuild is anchored here rather than on the render thread.
     camera: Mutex<Option<[f64; 3]>>,
+    /// Feet positions of the players blades should part for, recorded by `frame`: the
+    /// render thread has no `Game` to ask, the same reason `camera` is recorded there.
+    pushers: Mutex<Vec<[f64; 3]>>,
     clock: Instant,
 }
 
@@ -113,6 +116,7 @@ impl Mod {
             gpu: Mutex::new(None),
             last_anchor: Mutex::new(None),
             camera: Mutex::new(None),
+            pushers: Mutex::new(Vec::new()),
             clock: Instant::now(),
         }
     }
@@ -120,7 +124,10 @@ impl Mod {
     /// Rebuilds when the camera moves two blocks horizontally or one vertically. Block
     /// edits are not watched: the mesh refreshes on the next move.
     fn rebuild(&self, game: &mut Game<'_>, anchor: [i32; 3]) {
-        let dimension = game.native_dimension().to_owned();
+        let Some(player) = game.native_player() else {
+            return;
+        };
+        let dimension = player.dimension.to_owned();
         let settings = settings::load(|key| game.native_setting(settings::ID, key));
         {
             let mut last = self.last_anchor.lock().unwrap();
@@ -199,6 +206,12 @@ impl Mod {
             self.last_anchor.lock().unwrap().take();
             return;
         }
+        // Recorded here because `frame` is the only place with a `Game`; the render pass
+        // reads them back through `pushers`.
+        *self.pushers.lock().unwrap() = game
+            .native_player()
+            .map(|p| vec![[p.x, p.y, p.z]])
+            .unwrap_or_default();
         let Some(camera) = *self.camera.lock().unwrap() else {
             return;
         };
@@ -274,7 +287,16 @@ struct Globals {
     offset: [f32; 4],
     wind: [f32; 4],
     params: [f32; 4],
+    /// The players blades part for, anchor-relative: `xyz` position, `w` reach in blocks.
+    /// `w = 0` marks an unused slot.
+    pushers: [[f32; 4]; PUSHERS],
 }
+
+/// How many players a frame can part the grass for.
+const PUSHERS: usize = 4;
+
+/// How far from a player blades lean aside, in blocks.
+const PUSH_RADIUS: f32 = 1.6;
 
 struct Gpu {
     format: wgpu::TextureFormat,
@@ -371,13 +393,21 @@ impl Gpu {
                     cull_mode: None,
                     ..Default::default()
                 },
-                // Reversed depth: nearer is greater.
+                // Reversed depth: nearer is greater. `GreaterEqual`, as the terrain pass
+                // uses: a blade's base sits exactly on the grass block's top face, and
+                // `Greater` throws those fragments away, which reads as grass you can see
+                // the ground through. The bias pulls blades a hair towards the camera so
+                // the two surfaces never fight for the same depth.
                 depth_stencil: depth.then(|| wgpu::DepthStencilState {
                     format: wgpu::TextureFormat::Depth32Float,
                     depth_write_enabled: Some(true),
-                    depth_compare: Some(wgpu::CompareFunction::Greater),
+                    depth_compare: Some(wgpu::CompareFunction::GreaterEqual),
                     stencil: Default::default(),
-                    bias: Default::default(),
+                    bias: wgpu::DepthBiasState {
+                        constant: -2,
+                        slope_scale: -1.0,
+                        clamp: 0.0,
+                    },
                 }),
                 multisample: Default::default(),
                 fragment: Some(wgpu::FragmentState {
@@ -477,6 +507,19 @@ impl Gpu {
         let scroll = (ticks * 0.005 * WIND_INTENSITY).rem_euclid(1.0);
         // Shortcut: constant wind speed; the original pulses 70-110% and integrates its
         // scroll. Upgrade when a config exists.
+        // Anchor-relative, as the vertices are: the shader never sees world space.
+        let mut pushers = [[0.0f32; 4]; PUSHERS];
+        for (slot, at) in pushers
+            .iter_mut()
+            .zip(self.pushers.lock().unwrap().iter())
+        {
+            *slot = [
+                at[0] as f32 - self.anchor[0] as f32,
+                at[1] as f32 - self.anchor[1] as f32,
+                at[2] as f32 - self.anchor[2] as f32,
+                PUSH_RADIUS,
+            ];
+        }
         let globals = Globals {
             view_proj: world.view_proj.to_cols_array(),
             offset: [offset[0] as f32, offset[1] as f32, offset[2] as f32, 0.0],
@@ -484,6 +527,7 @@ impl Gpu {
             wind: [angle.cos(), angle.sin(), flutter, WIND_INTENSITY],
             // w = the original's noise scroll in UV space.
             params: [self.params[0] * 1.45, self.params[1], 1.0, scroll],
+            pushers,
         };
         queue.write_buffer(&self.globals, 0, bytemuck::bytes_of(&globals));
     }
