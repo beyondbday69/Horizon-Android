@@ -277,7 +277,8 @@ impl RenderHooks for Mod {
         }
 
         let elapsed = self.clock.elapsed().as_secs_f32();
-        gpu.write_globals(world.queue, world, elapsed);
+        let players = self.pushers.lock().map(|p| p.clone()).unwrap_or_default();
+        gpu.write_globals(world.queue, world, elapsed, &players);
         gpu.draw(world);
     }
 }
@@ -492,7 +493,13 @@ impl Gpu {
         self.anchor = mesh.anchor;
     }
 
-    fn write_globals(&self, queue: &wgpu::Queue, world: &WorldDrawn<'_>, elapsed: f32) {
+    fn write_globals(
+        &self,
+        queue: &wgpu::Queue,
+        world: &WorldDrawn<'_>,
+        elapsed: f32,
+        players: &[[f64; 3]],
+    ) {
         let offset = [
             self.anchor[0] as f64 - world.camera.x,
             self.anchor[1] as f64 - world.camera.y,
@@ -511,10 +518,7 @@ impl Gpu {
         // scroll. Upgrade when a config exists.
         // Anchor-relative, as the vertices are: the shader never sees world space.
         let mut pushers = [[0.0f32; 4]; PUSHERS];
-        for (slot, at) in pushers
-            .iter_mut()
-            .zip(self.pushers.lock().unwrap().iter())
-        {
+        for (slot, at) in pushers.iter_mut().zip(players.iter()) {
             *slot = [
                 at[0] as f32 - self.anchor[0] as f32,
                 at[1] as f32 - self.anchor[1] as f32,
