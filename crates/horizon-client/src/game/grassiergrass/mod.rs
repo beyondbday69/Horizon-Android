@@ -26,9 +26,7 @@ use std::time::Instant;
 
 use bytemuck::{Pod, Zeroable};
 use grassiergrass_engine as engine;
-use horizon_client::mod_api::{
-    Host, RenderHooks, RenderNeedsEvent, WorldDrawn, WorldDrawnEvent, wgpu,
-};
+use horizon_client::mod_api::{RenderHooks, RenderNeedsEvent, WorldDrawn, WorldDrawnEvent, wgpu};
 
 use crate::game::Game;
 
@@ -66,8 +64,9 @@ fn enabled() -> bool {
 /// kernel, and each one's tinted grass colour. Falls back to untinted when the mod turns
 /// biome tint off or the column has no biomes loaded.
 fn biome_tint(game: &Game<'_>, surface: [f64; 3]) -> [f32; 3] {
-    // `biomes` and the biome colours come from the mod API's `Host`, which `Game` implements.
-    let biomes = Host::biomes(game);
+    // The colour tables live on the game's resources, as does the world's own list when a
+    // pack supplies biomes, so this reads through the same accessor the terrain does.
+    let biomes = game.res.biomes();
     let at = |x: i32, y: i32, z: i32| -> u16 {
         game.biome_id_at([f64::from(x), f64::from(y), f64::from(z)])
     };
@@ -537,7 +536,7 @@ impl Gpu {
             if cached.as_ref().is_some_and(|(built, _)| *built != size) {
                 *cached = None;
             }
-            let group = cached.get_or_insert_with(|| {
+            let cached: &mut (u32, wgpu::BindGroup) = cached.get_or_insert_with(|| {
                 let group = world.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("grassiergrass blades sampled"),
                     layout: &self.layout_sampled,
@@ -553,9 +552,10 @@ impl Gpu {
                     ],
                 });
                 (size, group)
-            })
-            .1;
-            pass.set_bind_group(0, group, &[]);
+            });
+            // `set_bind_group` takes anything `Option<&BindGroup>` is built from, and the
+            // only such impl is the blanket one, so the reference must be explicit.
+            pass.set_bind_group(0, Some(&cached.1), &[]);
         }
         pass.set_vertex_buffer(0, vertices.slice(..));
         pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
