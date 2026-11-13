@@ -1,0 +1,174 @@
+[mod]
+id = "holdmyitems"
+version = "5.1.3"
+priority = 100
+
+# Pinned to Horizon Nightly 2026-11-01 (c9d474dd9116e84c243f8992d75c11314df56f06,
+# tag nightly-source/2026-11-01-c9d474d).
+[compatibility]
+horizon_revision = "c9d474dd9116e84c243f8992d75c11314df56f06"
+
+[[module]]
+id = "runtime"
+file = "crates/horizon-client/src/game.rs"
+name = "holdmyitems"
+source = "runtime.rs"
+
+[[module]]
+id = "native"
+file = "crates/horizon-client/src/game.rs"
+name = "holdmyitems_native"
+source = "native.rs"
+
+# Names the other built-in features this bundle asks for (sound physics, camera
+# overhaul). No injection: the client reads the feature ids out of the sources.
+[[module]]
+id = "features"
+file = "crates/horizon-client/src/game.rs"
+name = "holdmyitems_features"
+source = "features.rs"
+
+# Pinned: first-person hand + item + 3D block + map + particle rendering overhaul.
+# Runs at HEAD of `item_activation_geometry`, immediately after `hand_geometry`
+# fills `hand` (`out`) and before any Totem of Undying pop animation draws on top.
+[[injection]]
+id = "hand_render"
+kind = "HEAD"
+target = "horizon_client::game::totem::Game<'_>::item_activation_geometry"
+helper = "hand_render.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "self" },
+  { name = "partial", ty = "f32", value = "partial" },
+  { name = "out", ty = "&mut Vec<horizon_client::mesher::Vertex>", value = "&mut *out" },
+]
+
+# Pinned: independent per-hand swing tracking and custom per-item swing speed.
+[[injection]]
+id = "swing"
+kind = "HEAD"
+target = "horizon_client::game::hand::Game<'_>::swing_hand"
+helper = "swing.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "hand", ty = "horizon_client::first_person::Hand", value = "hand" },
+]
+
+# Hook point: frame delta-time physics, spring-damper integration, sounds, and map vertex pre-cache.
+[[injection]]
+id = "frame"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_frame"
+helper = "frame.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "elapsed", ty = "std::time::Duration", value = "elapsed" },
+]
+
+# Hook point: 20 TPS per-hand swing progress tick (LivingEntityMixin.tick equivalent).
+[[injection]]
+id = "tick"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_tick"
+helper = "tick.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+]
+
+# Hook point: first-person camera shake feedback during eating, drinking, walking, and landing.
+[[injection]]
+id = "shake"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_camera_shake"
+helper = "shake.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "self" },
+  { name = "partial", ty = "f32", value = "partial" },
+  { name = "shake", ty = "&mut crate::game::native_hooks::NativeShake", value = "&mut *shake" },
+]
+
+# Hook point: dynamic hand-held colored lighting for torches, lanterns, lava buckets, and brewing stands.
+[[injection]]
+id = "visuals"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_visuals"
+helper = "visuals.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "self" },
+  { name = "lights", ty = "&mut Vec<crate::game::native_hooks::NativeColoredLight>", value = "&mut *lights" },
+]
+
+# Hook point: Inspect keybind (`key.holdmyitems.inspect`, default C) and custom script keybinds.
+[[injection]]
+id = "key"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_key"
+helper = "key.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "key", ty = "&str", value = "key" },
+  { name = "pressed", ty = "bool", value = "pressed" },
+]
+
+# Hook point: optional debug overlay for HMI script/state inspection.
+[[injection]]
+id = "hud"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_hud"
+helper = "hud.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "batch", ty = "&mut horizon_client::hud::HudBatch", value = "&mut *batch" },
+]
+
+# Hook points: `/hmi` client command handler (`/hmi reload`, `/hmi inspect`, `/hmi offset`, `/hmi speed`, `/hmi reset`).
+[[injection]]
+id = "command"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_command"
+helper = "command.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "command", ty = "&str", value = "command" },
+  { name = "ran", ty = "&mut bool", value = "&mut *ran" },
+]
+
+[[injection]]
+id = "commands"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_commands"
+helper = "commands.rs"
+bindings = [
+  { name = "commands", ty = "&mut Vec<&'static str>", value = "&mut *commands" },
+]
+
+# Hook points: Options > Mods entry and settings buttons.
+[[injection]]
+id = "list"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_mods"
+helper = "list.rs"
+bindings = [
+  { name = "mods", ty = "&mut Vec<crate::game::native_hooks::NativeMod>", value = "&mut *mods" },
+]
+
+[[injection]]
+id = "settings"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_settings"
+helper = "settings.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "mod_id", ty = "&str", value = "mod_id" },
+  { name = "buttons", ty = "&mut Vec<String>", value = "&mut *buttons" },
+]
+
+[[injection]]
+id = "click"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_settings_click"
+helper = "click.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "mod_id", ty = "&str", value = "mod_id" },
+  { name = "button", ty = "usize", value = "button" },
+]
