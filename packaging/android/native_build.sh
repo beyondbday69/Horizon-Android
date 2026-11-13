@@ -65,7 +65,7 @@ for d in "$work/mods"/*; do
   fi
 done
 
-cargo fetch --locked --manifest-path "$work/source/Cargo.toml" > /dev/null
+cargo fetch --manifest-path "$work/source/Cargo.toml" > /dev/null
 if [ -n "$(ls -A "$work/mods" 2>/dev/null)" ]; then
   "$tools/bin/horizon-mixins" apply --workspace "$work/source" --mods "$work/mods" --out "$work/stage"
 else
