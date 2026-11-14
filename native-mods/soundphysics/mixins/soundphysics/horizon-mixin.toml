@@ -1,0 +1,17 @@
+[mod]
+id = "soundphysics"
+version = "0.1.0"
+priority = 100
+
+# Pinned to Horizon Nightly 2026-11-01 (c9d474dd9116e84c243f8992d75c11314df56f06,
+# tag nightly-source/2026-11-01-c9d474d).
+[compatibility]
+horizon_revision = "c9d474dd9116e84c243f8992d75c11314df56f06"
+
+# Names the built-in feature this bundle asks for. No injection: the client
+# reads the feature id out of the sources (jar_transpiler::infer_features).
+[[module]]
+id = "features"
+file = "crates/horizon-client/src/game.rs"
+name = "soundphysics_features"
+source = "features.rs"
